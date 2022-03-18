@@ -9,10 +9,18 @@
 	"todo-tree.general.tags": [
 	"?",
 	"!",
-	" Step "
+	" Step "," step ",
+	" TODO"
 	],
 	"todo-tree.highlights.customHighlight": {
 	" Step ": {
+	"foreground": "#7CFC00",
+	"icon": "question",
+	"iconColour": "green",
+	"type": "text-and-comment",
+	"hideFromTree": true
+	},
+	" step ": {
 	"foreground": "#7CFC00",
 	"icon": "question",
 	"iconColour": "green",
@@ -27,6 +35,12 @@
 	},
 	"!": {
 	"foreground": "red",
+	"icon": "issue-opened",
+	"iconColour": "red",
+	"type": "text-and-comment"
+	},
+	" TODO": {
+	"foreground": "white",
 	"icon": "issue-opened",
 	"iconColour": "red",
 	"type": "text-and-comment"
@@ -101,6 +115,16 @@
 		"xstddef": "cpp",
 		"xstring": "cpp",
 		"xtr1common": "cpp",
-		"xutility": "cpp"
+		"xutility": "cpp",
+		"array": "cpp",
+		"atomic": "cpp",
+		"*.tcc": "cpp",
+		"clocale": "cpp",
+		"condition_variable": "cpp",
+		"cwctype": "cpp",
+		"functional": "cpp",
+		"memory_resource": "cpp",
+		"optional": "cpp",
+		"string_view": "cpp"
 	}
 }

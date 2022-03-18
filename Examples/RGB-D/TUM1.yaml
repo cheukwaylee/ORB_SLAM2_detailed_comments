@@ -19,7 +19,7 @@ Camera.k3: 1.163314
 Camera.width: 640
 Camera.height: 480
 
-# Camera frames per second 
+# Camera frames per second fps
 Camera.fps: 30.0
 
 # IR projector baseline times fx (aprox.)
@@ -29,6 +29,7 @@ Camera.bf: 40.0
 Camera.RGB: 1
 
 # Close/Far threshold. Baseline times.
+# 得到的深度信息在基线长度的40倍以内，则认为可接受
 ThDepth: 40.0
 
 # Deptmap values factor 
@@ -50,8 +51,8 @@ ORBextractor.nLevels: 8
 # ORB Extractor: Fast threshold
 # Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
 # Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
-# You can lower these values if your images have low contrast			
-ORBextractor.iniThFAST: 20
+# You can lower these values if your images have low contrast
+ORBextractor.iniThFAST: 20 # 对比度低的时候调低
 ORBextractor.minThFAST: 7
 
 #--------------------------------------------------------------------------------------------
