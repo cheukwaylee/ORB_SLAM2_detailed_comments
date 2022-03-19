@@ -70,9 +70,9 @@ namespace ORB_SLAM2
       Map *pMap,                    //地图句柄
       KeyFrameDatabase *pKFDB,      //关键帧产生的词袋数据库
       const string &strSettingPath, //配置文件路径
-      const int sensor)
-      :                                         //传感器类型
-        mState(NO_IMAGES_YET),                  //当前系统还没有准备好
+      const int sensor              //传感器类型
+      )
+      : mState(NO_IMAGES_YET),                  //当前系统还没有准备好
         mSensor(sensor), mbOnlyTracking(false), //处于SLAM模式
         mbVO(false),                            //当处于纯跟踪模式的时候，这个变量表示了当前跟踪状态的好坏
         mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),

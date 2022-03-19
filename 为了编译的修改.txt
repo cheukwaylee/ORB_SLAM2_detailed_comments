@@ -1,0 +1,47 @@
+2022年3月19日 18:53:20
+为了编译通过！！！ROS相关的还没改
+
+**********************************************
+
+根目录的cmakelist改为c++14
+
+    # # Check C++11 or C++0x support
+    # include(CheckCXXCompilerFlag)
+    # CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+    # CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
+    # if(COMPILER_SUPPORTS_CXX11)
+    #    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    #    add_definitions(-DCOMPILEDWITHC14)
+    #    message(STATUS "Using flag -std=c++11.")
+    # elseif(COMPILER_SUPPORTS_CXX0X)
+    #    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+    #    add_definitions(-DCOMPILEDWITHC0X)
+    #    message(STATUS "Using flag -std=c++0x.")
+    # else()
+    #    message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+    # endif()
+
+**********************************************
+
+全局把
+COMPILEDWITHC11
+替换为
+COMPILEDWITHC14
+
+**********************************************
+
+LoopClosing.cc
+把
+    typedef map<
+        KeyFrame *,                                                      //键
+        g2o::Sim3,                                                       //值
+        std::less<KeyFrame *>,                                           //排序算法
+        Eigen::aligned_allocator<std::pair<KeyFrame *const, g2o::Sim3>>> // 指定分配器,和内存空间开辟有关. 为了能够使用Eigen库中的SSE和AVX指令集加速,需要将传统STL容器中的数据进行对齐处理
+        KeyFrameAndPose;
+改为了
+    typedef map<
+        KeyFrame *,                                                      //键
+        g2o::Sim3,                                                       //值
+        std::less<KeyFrame *>,                                           //排序算法
+        Eigen::aligned_allocator<std::pair<const KeyFrame*, g2o::Sim3>>> // 指定分配器,和内存空间开辟有关. 为了能够使用Eigen库中的SSE和AVX指令集加速,需要将传统STL容器中的数据进行对齐处理
+        KeyFrameAndPose;

@@ -57,7 +57,7 @@ int main(int argc, char **argv)
     {
         cerr
             << endl
-            << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings path_to_sequence path_to_association"
+            << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings(yaml) path_to_sequence path_to_association"
             << endl;
         return 1;
     }
@@ -92,6 +92,7 @@ int main(int argc, char **argv)
     // step 3 Create SLAM system. It initializes all system threads and gets ready to process frames.
     //创建ORB-SLAM2对象，并初始化系统
     ORB_SLAM2::System SLAM(argv[1], argv[2], ORB_SLAM2::System::RGBD, true);
+    // path_to_vocabulary //path_to_settings yaml
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack; // 保存每一帧的处理时间
@@ -122,7 +123,7 @@ int main(int argc, char **argv)
             return 1;
         }
 
-#ifdef COMPILEDWITHC11
+#ifdef COMPILEDWITHC14
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 #else
         std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
@@ -131,7 +132,7 @@ int main(int argc, char **argv)
         // step 4.2 Pass the image to the SLAM system for tracking
         SLAM.TrackRGBD(imRGB, imD, tframe);
 
-#ifdef COMPILEDWITHC11
+#ifdef COMPILEDWITHC14
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 #else
         std::chrono::monotonic_clock::time_point t2 = std::chrono::monotonic_clock::now();

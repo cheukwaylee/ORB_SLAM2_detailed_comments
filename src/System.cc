@@ -25,7 +25,7 @@
 #include "Converter.h" // TODO: 目前还不是很明白这个是做什么的
 
 //包含共有库
-#include <iomanip>             //主要是对cin,cout之类的一些操纵运算子
+#include <iomanip>             //主要是对cin,cout之类的一些操纵运算子 io代表输入输出，manip是manipulator（操纵器）
 #include <pangolin/pangolin.h> //可视化界面
 #include <thread>              //多线程
 #include <unistd.h>
@@ -33,31 +33,27 @@ namespace ORB_SLAM2
 {
 
   //系统的构造函数，将会启动其他的线程
-  System::System(const string &strVocFile,      //词典文件路径
-                 const string &strSettingsFile, //配置文件路径
-                 const eSensor sensor,          //传感器类型
-                 const bool bUseViewer)
-      :                                        //是否使用可视化界面
-        mSensor(sensor),                       //初始化传感器类型
-        mpViewer(static_cast<Viewer *>(NULL)), //空。。。对象指针？  // TODO:
+  System::System(
+      const string &strVocFile,      //词典文件路径
+      const string &strSettingsFile, //配置文件yaml路径
+      const eSensor sensor,          //传感器类型
+      const bool bUseViewer          //是否使用可视化界面
+      )
+      : mSensor(sensor),                       //初始化传感器类型
+        mpViewer(static_cast<Viewer *>(NULL)), //空指针？ TODO:
         mbReset(false),                        //无复位标志
-        mbActivateLocalizationMode(false),     //没有这个模式转换标志
-        mbDeactivateLocalizationMode(false)    //没有这个模式转换标志
+        mbActivateLocalizationMode(false),     // 默认false 没有这个模式转换标志
+        mbDeactivateLocalizationMode(false)    // 默认false 没有这个模式转换标志
   {
     // Output welcome message
     cout << endl
-         << "ORB-SLAM2 Copyright (C) 2014-2016 Raul Mur-Artal, University of "
-            "Zaragoza."
-         << endl
+         << "ORB-SLAM2 Copyright (C) 2014-2016 Raul Mur-Artal, University of Zaragoza." << endl
          << "This program comes with ABSOLUTELY NO WARRANTY;" << endl
-         << "This is free software, and you are welcome to redistribute it"
-         << endl
+         << "This is free software, and you are welcome to redistribute it" << endl
          << "under certain conditions. See LICENSE.txt." << endl
          << endl;
-
     // 输出当前传感器类型
     cout << "Input sensor was set to: ";
-
     if (mSensor == MONOCULAR)
       cout << "Monocular" << endl;
     else if (mSensor == STEREO)
@@ -66,10 +62,10 @@ namespace ORB_SLAM2
       cout << "RGB-D" << endl;
 
     // Step 1. 初始化成员变量
-    // Step 1.1 读取配置文件信息
-    // Check settings file
+
+    // Step 1.1 Check settings file
     cv::FileStorage fsSettings(
-        strSettingsFile.c_str(), //将配置文件名转换成为字符串
+        strSettingsFile.c_str(), //将配置文件yaml路径转换成为字符串 path_to_settings(yaml)
         cv::FileStorage::READ);  //只读
     //如果打开失败，就输出调试信息
     if (!fsSettings.isOpened())
@@ -79,15 +75,12 @@ namespace ORB_SLAM2
       exit(-1);
     }
 
-    // Load ORB Vocabulary
+    // Step 1.2 Load ORB Vocabulary
     cout << endl
          << "Loading ORB Vocabulary. This could take a while..." << endl;
-
-    // Step 1.2
-    //建立一个新的ORB字典
     mpVocabulary = new ORBVocabulary();
     //获取字典加载状态
-    bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
+    bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile); // path_to_vocabulary
     //如果加载失败，就输出调试信息
     if (!bVocLoad)
     {
@@ -100,75 +93,82 @@ namespace ORB_SLAM2
     cout << "Vocabulary loaded!" << endl
          << endl;
 
-    // Step 1.3
-    // Create KeyFrame Database
+    // Step 1.3 Create KeyFrame Database
+    // 创建关键帧数据库,主要保存ORB描述子倒排索引(即根据描述子 查找拥有该描述子的关键帧)
     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
 
-    // Step 1.4
-    // Create the Map
+    // Step 1.4 Create the Map
     mpMap = new Map();
 
-    // Create Drawers. These are used by the Viewer
+    // Step 1.5 Create Drawers. These are used by the Viewer
     //这里的帧绘制器和地图绘制器将会被可视化的Viewer所使用
     mpFrameDrawer = new FrameDrawer(mpMap);
     mpMapDrawer = new MapDrawer(mpMap, strSettingsFile);
 
     // Step 2 创建三大线程：Tracking / LocalMapping / LoopClosing
-    // Step 2.1
-    //在本主进程中初始化追踪线程
-    // Initialize the Tracking thread
-    //(it will live in the main thread of execution, the one that called this
-    // constructor)
+
+    // Step 2.1 Initialize the Tracking thread
+    // it will live in the main thread of execution, the one that called this constructor
+    // 在本主进程中初始化追踪线程，主线程就是Tracking线程，只需创建Tracking对象即可
     mpTracker =
-        new Tracking(this,               //现在还不是很明白为什么这里还需要一个this指针  TODO
-                     mpVocabulary,       //字典
-                     mpFrameDrawer,      //帧绘制器
-                     mpMapDrawer,        //地图绘制器
-                     mpMap,              //地图
-                     mpKeyFrameDatabase, //关键帧地图
-                     strSettingsFile,    //设置文件路径
-                     mSensor);           //传感器类型iomanip
+        new Tracking(
+            this,               // TODO: 现在还不是很明白为什么这里还需要一个this指针 可以同时开很多个system实例？
+            mpVocabulary,       //字典
+            mpFrameDrawer,      //帧绘制器
+            mpMapDrawer,        //地图绘制器
+            mpMap,              //地图
+            mpKeyFrameDatabase, //关键帧地图
+            strSettingsFile,    //设置文件路径
+            mSensor             //传感器类型
+        );
 
-    // Step 2.2
-    //初始化局部建图线程并运行
-    // Initialize the Local Mapping thread and launch
+    // Step 2.2 Initialize the Local Mapping thread and launch
+    // 初始化局部建图线程并运行
     mpLocalMapper = new LocalMapping(
-        mpMap,                 //指定使iomanip
-        mSensor == MONOCULAR); // TODO: 为什么这个要设置成为MONOCULAR？？？
+        mpMap,               //地图
+        mSensor == MONOCULAR // TODO: 为什么这个要设置成为MONOCULAR？？？传入的是一个bool表达式 system调用构造的时候是单目，则是1
+    );
+
     //运行这个局部建图线程
-    mptLocalMapping =
-        new thread(&ORB_SLAM2::LocalMapping::Run, //这个线程会调用的函数
-                   mpLocalMapper);                //这个调用函数的参数
+    mptLocalMapping = new thread(
+        &ORB_SLAM2::LocalMapping::Run, //这个线程会调用的函数
+        mpLocalMapper                  //这个调用函数的参数
+    );
+    // 竹曼的理解 等价于：mpLocalMapper->Run()
+    // ORB_SLAM2::LocalMapping::Run(mpLocalMapper)
+    // 把类成员的this指针传给类方法
 
-    // Step 2.3
-    // Initialize the Loop Closing thread and launchiomanip
-    mpLoopCloser = new LoopClosing(mpMap,                 //地图
-                                   mpKeyFrameDatabase,    //关键帧数据库
-                                   mpVocabulary,          // ORB字典
-                                   mSensor != MONOCULAR); //当前的传感器是否是单目
+    // Step 2.3 Initialize the Loop Closing thread and launch
+    mpLoopCloser = new LoopClosing(
+        mpMap,               //地图
+        mpKeyFrameDatabase,  //关键帧数据库
+        mpVocabulary,        // ORB字典
+        mSensor != MONOCULAR //当前的传感器是否是单目
+    );
     //创建回环检测线程
-    mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, //线程的主函数
-                                mpLoopCloser);                //该函数的参数
+    mptLoopClosing = new thread(
+        &ORB_SLAM2::LoopClosing::Run, //线程的主函数
+        mpLoopCloser                  //该函数的参数 竹曼的理解等价于：mpLoopCloser->Run()
+    );
 
-    // Initialize the Viewer thread and launch
+    // Step 2.4 Initialize the Viewer thread and launch
     if (bUseViewer)
     {
-      //如果指定了，程序的运行过程中需要运行可视化部分
-      //新建viewer
+      // 如果指定了，程序的运行过程中需要运行可视化部分
       mpViewer = new Viewer(this,             //又是这个
                             mpFrameDrawer,    //帧绘制器
                             mpMapDrawer,      //地图绘制器
                             mpTracker,        //追踪器
                             strSettingsFile); //配置文件的访问路径
-      //新建viewer线程
-      mptViewer = new thread(&Viewer::Run, mpViewer);
-      //给运动追踪器设置其查看器
+      // 新建viewer线程
+      mptViewer = new thread(&Viewer::Run, mpViewer); // TODO: Viewer为什么没有ORB_SLAM2的命名空间？
+      // 给运动追踪器设置其查看器
       mpTracker->SetViewer(mpViewer);
     }
 
     // Step 3 设置线程间通信
     // Set pointers between threads
-    //设置进程间的指针
+    // 设置进程间的指针
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
 
@@ -179,40 +179,43 @@ namespace ORB_SLAM2
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
 
     /*
-    LocalMapping和LoopClosing线程在System类中有对应的std::thread线程成员变量,为什么Tracking线程没有对应的std::thread成员变量?
+    LocalMapping和LoopClosing线程在System类中有对应的std::thread线程成员变量,
+    为什么Tracking线程没有对应的std::thread成员变量?
 
     因为Tracking线程就是主线程,而LocalMapping和LoopClosing线程是其子线程,
     主线程通过持有两个子线程的指针(mptLocalMapping和mptLoopClosing)控制子线程.
+
     (ps:虽然在编程实现上三大主要线程构成父子关系,但逻辑上我们认为这三者是并发的,不存在谁控制谁的问题).
     */
   }
 
   //双目输入时的追踪器接口
-  cv::Mat System::TrackStereo(const cv::Mat &imLeft,   //左侧图像
-                              const cv::Mat &imRight,  //右侧图像
-                              const double &timestamp) //时间戳
+  cv::Mat System::TrackStereo(
+      const cv::Mat &imLeft,  //左侧图像
+      const cv::Mat &imRight, //右侧图像
+      const double &timestamp //时间戳
+  )
   {
     //检查输入数据类型是否合法
     if (mSensor != STEREO)
     {
-      //不合法那就退出
       cerr << "ERROR: you called TrackStereo but input sensor was not set to "
               "STEREO."
            << endl;
+      //不合法就强行退出
       exit(-1);
     }
 
-    //检查是否有运行模式的改变
     // Check mode change
+    //检查是否有运行模式的改变
     {
-      // TODO: 锁住这个变量？防止其他的线程对它的更改？
       unique_lock<mutex> lock(mMutexMode);
-      //如果激活定位模式
+
+      //激活定位模式
       if (mbActivateLocalizationMode)
       {
         //调用局部建图器的请求停止函数
         mpLocalMapper->RequestStop();
-
         // Wait until Local Mapping has effectively stopped
         while (!mpLocalMapper->isStopped())
         {
@@ -223,37 +226,39 @@ namespace ORB_SLAM2
         mpTracker->InformOnlyTracking(true); // 定位时，只跟踪
         //同时清除定位标记
         mbActivateLocalizationMode = false; // 防止重复执行
-      }                                     //如果激活定位模式
+      }
+
+      //取消定位模式
       if (mbDeactivateLocalizationMode)
       {
-        //如果取消定位模式
         //告知追踪器，现在地图构建部分也要开始工作了
         mpTracker->InformOnlyTracking(false);
         //局部建图器要开始工作呢
         mpLocalMapper->Release();
         //清楚标志
         mbDeactivateLocalizationMode = false; // 防止重复执行
-      }                                       //如果取消定位模式
-    }                                         //检查是否有模式的改变
+      }
+    }
 
-    // Check reset，检查是否有复位的操作
+    // Check reset
+    //检查是否有复位的操作
     {
-      //上锁
       unique_lock<mutex> lock(mMutexReset);
-      //是否有复位请求？
+
       if (mbReset)
       {
         //有，追踪器复位
         mpTracker->Reset();
         //清除标志
         mbReset = false;
-      } //是否有复位请求
-    }   //检查是否有复位的操作
+      }
+    }
 
-    //用矩阵Tcw来保存估计的相机
-    //位姿，运动追踪器的GrabImageStereo函数才是真正进行运动估计的函数
+    // 用矩阵Tcw来保存估计的相机位姿
+    // 运动追踪器的GrabImageStereo函数才是真正进行运动估计的函数
     cv::Mat Tcw = mpTracker->GrabImageStereo(imLeft, imRight, timestamp);
 
+    // TODO: 这个锁的作用域到哪里？？ lock2有什么不同？？ 不同的锁有什么不同？？
     //给运动追踪状态上锁
     unique_lock<mutex> lock2(mMutexState);
     //获取运动追踪状态
@@ -262,6 +267,7 @@ namespace ORB_SLAM2
     mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
     //获取当前帧追踪到的关键帧特征点向量的指针
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
+
     //返回获得的相机运动估计
     return Tcw;
   }
@@ -339,6 +345,7 @@ namespace ORB_SLAM2
     {
       // 独占锁，主要是为了mbActivateLocalizationMode和mbDeactivateLocalizationMode不会发生混乱
       unique_lock<mutex> lock(mMutexMode);
+
       // mbActivateLocalizationMode为true会关闭局部地图线程
       if (mbActivateLocalizationMode)
       {
@@ -352,11 +359,12 @@ namespace ORB_SLAM2
 
         // 局部地图关闭以后，只进行追踪的线程，只计算相机的位姿，没有对局部地图进行更新
         // 设置mbOnlyTracking为真
+        // ps. 关闭线程可以使得别的线程得到更多的资源
         mpTracker->InformOnlyTracking(true);
-        // 关闭线程可以使得别的线程得到更多的资源
         mbActivateLocalizationMode = false;
       }
-      // 如果mbDeactivateLocalizationMode是true，局部地图线程就被释放,
+
+      // 如果mbDeactivateLocalizationMode是true，局部地图线程就被释放, TODO: 释放？开始工作的意思？？
       // 关键帧从局部地图中删除.
       if (mbDeactivateLocalizationMode)
       {
@@ -406,10 +414,13 @@ namespace ORB_SLAM2
   //判断是否地图有较大的改变
   bool System::MapChanged()
   {
+    // 保存上次的？？
     static int n = 0;
+
     //其实整个函数功能实现的重点还是在这个GetLastBigChangeIdx函数上
     int curn = mpMap->GetLastBigChangeIdx();
-    if (n < curn)
+
+    if (n < curn) // 有重大变更
     {
       n = curn;
       return true;
@@ -431,6 +442,7 @@ namespace ORB_SLAM2
     //对局部建图线程和回环检测线程发送终止请求
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
+
     //如果使用了可视化窗口查看器
     if (mpViewer)
     {
@@ -444,13 +456,15 @@ namespace ORB_SLAM2
     // Wait until all thread have effectively stopped
     while (!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished() ||
            mpLoopCloser->isRunningGBA())
+    // 判断LocalMapper LoopCloser线程是否结束 最后一个是full BA
+    // 在回环纠正的时候调用,查看当前是否已经有一个全局优化的线程在进行
     {
       usleep(5000);
     }
 
     if (mpViewer)
       //如果使用了可视化的窗口查看器执行这个
-      // TODO 但是不明白这个是做什么的。如果我注释掉了呢？
+      // TODO: 但是不明白这个是做什么的。如果我注释掉了呢？
       pangolin::BindToContext("ORB-SLAM2: Map Viewer");
   }
 
@@ -458,7 +472,10 @@ namespace ORB_SLAM2
   void System::SaveTrajectoryTUM(const string &filename)
   {
     cout << endl
-         << "Saving camera trajectory to " << filename << " ..." << endl;
+         << "Saving camera trajectory to "
+         << filename << " ..."
+         << endl;
+
     //只有在传感器为双目或者RGBD时才可以工作
     if (mSensor == MONOCULAR)
     {
@@ -468,19 +485,27 @@ namespace ORB_SLAM2
 
     //从地图中获取所有的关键帧
     vector<KeyFrame *> vpKFs = mpMap->GetAllKeyFrames();
+
     //根据关键帧生成的先后顺序（id）进行排序
+    /*
+      static bool lId(KeyFrame *pKF1, KeyFrame *pKF2) // 静态函数可以直接被外部调用（不通过对象）
+          {
+              return pKF1->mnId < pKF2->mnId;  // 提供排序依据
+          }
+    */
     sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
 
     // Transform all keyframes so that the first keyframe is at the origin.
-    // After a loop closure the first keyframe might not be at the origin.
+    // (After a loop closure the first keyframe might not be at the origin.)
     // 到原点的转换，获取这个转换矩阵
+    // 返回的其实是vpKFs指向的对象的Twc成员 不过已经定义了第一帧为原点
     cv::Mat Two = vpKFs[0]->GetPoseInverse();
 
     //文件写入的准备工作
     ofstream f;
     f.open(filename.c_str());
     //这个可以理解为，在输出浮点数的时候使用0.3141592654这样的方式而不是使用科学计数法
-    f << fixed;
+    f << fixed; /// Generate floating-point output in fixed-point notation.
 
     // Frame pose is stored relative to its reference keyframe (which is optimized
     // by BA and pose graph). We need to get first the keyframe pose and then
@@ -500,7 +525,7 @@ namespace ORB_SLAM2
     for (list<cv::Mat>::iterator lit = mpTracker->mlRelativeFramePoses.begin(),
                                  lend = mpTracker->mlRelativeFramePoses.end();
          lit != lend;
-         lit++, lRit++, lT++, lbL++) // TODO 为什么是在这里更新参考关键帧？
+         lit++, lRit++, lT++, lbL++) // TODO: 为什么是在这里更新参考关键帧？
     {
       //如果该帧追踪失败，不管它，进行下一个
       if (*lbL)
