@@ -273,8 +273,10 @@ namespace ORB_SLAM2
   }
 
   //当输入图像 为RGBD时进行的追踪，参数就不在一一说明了
-  cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap,
-                            const double &timestamp)
+  cv::Mat System::TrackRGBD(
+      const cv::Mat &im,
+      const cv::Mat &depthmap,
+      const double &timestamp)
   {
     //判断输入数据类型是否合法
     if (mSensor != RGBD)
@@ -331,7 +333,9 @@ namespace ORB_SLAM2
   }
 
   //同理，输入为单目图像时的追踪器接口
-  cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
+  cv::Mat System::TrackMonocular(
+      const cv::Mat &im,
+      const double &timestamp)
   {
     if (mSensor != MONOCULAR)
     {
@@ -384,7 +388,7 @@ namespace ORB_SLAM2
       }
     }
 
-    //获取相机位姿的估计结果
+    //获取相机位姿的估计结果 真正的实现
     cv::Mat Tcw = mpTracker->GrabImageMonocular(im, timestamp);
 
     unique_lock<mutex> lock2(mMutexState);
@@ -487,18 +491,15 @@ namespace ORB_SLAM2
     vector<KeyFrame *> vpKFs = mpMap->GetAllKeyFrames();
 
     //根据关键帧生成的先后顺序（id）进行排序
-    /*
-      static bool lId(KeyFrame *pKF1, KeyFrame *pKF2) // 静态函数可以直接被外部调用（不通过对象）
-          {
-              return pKF1->mnId < pKF2->mnId;  // 提供排序依据
-          }
-    */
+    // static bool lId(KeyFrame *pKF1, KeyFrame *pKF2) // 静态函数可以直接被外部调用（不通过对象）
+    //    return pKF1->mnId < pKF2->mnId;       // 提供排序依据
     sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // (After a loop closure the first keyframe might not be at the origin.)
     // 到原点的转换，获取这个转换矩阵
     // 返回的其实是vpKFs指向的对象的Twc成员 不过已经定义了第一帧为原点
+    // world wrt current (current is orignal!) 也就是 world wrt orignal
     cv::Mat Two = vpKFs[0]->GetPoseInverse();
 
     //文件写入的准备工作
@@ -512,18 +513,21 @@ namespace ORB_SLAM2
     // concatenate the relative transformation. Frames not localized (tracking
     // failure) are not saved.
     // 之前的帧位姿都是基于其参考关键帧的，现在我们把它恢复
+    // 非帧位姿基于关键帧；关键帧位姿基于第一个关键帧
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and
     // a flag which is true when tracking failed (lbL).
-    //参考关键帧列表
+    //参考关键帧列表 每一帧wrt的关键帧
     list<ORB_SLAM2::KeyFrame *>::iterator lRit = mpTracker->mlpReferences.begin();
     //所有帧对应的时间戳列表
     list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
     //每帧的追踪状态组成的列表
     list<bool>::iterator lbL = mpTracker->mlbLost.begin();
+
     //对于每一个mlRelativeFramePoses中的帧lit
-    for (list<cv::Mat>::iterator lit = mpTracker->mlRelativeFramePoses.begin(),
-                                 lend = mpTracker->mlRelativeFramePoses.end();
+    for (list<cv::Mat>::iterator // currentF wrt its KF (relativeKF)
+             lit = mpTracker->mlRelativeFramePoses.begin(),
+             lend = mpTracker->mlRelativeFramePoses.end();
          lit != lend;
          lit++, lRit++, lT++, lbL++) // TODO: 为什么是在这里更新参考关键帧？
     {
@@ -532,29 +536,41 @@ namespace ORB_SLAM2
         continue;
 
       //获取其对应的参考关键帧
+      // 提领 list<ORB_SLAM2::KeyFrame *>::iterator 得到的类型是 ORB_SLAM2::KeyFrame *
       KeyFrame *pKF = *lRit;
 
       //变换矩阵的初始化，初始化为一个单位阵
-      cv::Mat Trw = cv::Mat::eye(4, 4, CV_32F);
+      cv::Mat Trw = cv::Mat::eye(4, 4, CV_32F); // relative wrt world
 
-      // If the reference keyframe was culled（剔除）, traverse（扫描？） the
-      // spanning tree to get a suitable keyframe.
+      // If the reference keyframe was culled（剔除）,
+      // traverse（遍历） the spanning tree to get a suitable keyframe.
+      //查看当前使用的参考关键帧是否为bad
       while (pKF->isBad())
       {
-        //更新关键帧变换矩阵的初始值，
-        Trw = Trw * pKF->mTcp;
-        //并且更新到原关键帧的父关键帧
-        pKF = pKF->GetParent();
-      } //查看当前使用的参考关键帧是否为bad
-      // TODO 其实我也是挺好奇，为什么在这里就能够更改掉不合适的参考关键帧了呢
+        //更新关键帧变换矩阵的初始值
+        // KF不叻的时候，就需要用到他的父关键帧迭代得到初始估计值
+        Trw = Trw * pKF->mTcp; // relative wrt world * currentKF wrt parent
+        // ?? 竹曼理解 应该是 currentKF wrt 叻叻的父KF
 
-      // TODO 这里的函数GetPose()和上面的mTcp有什么不同？
+        //用原关键帧的父关键帧代替
+        pKF = pKF->GetParent();
+      }
+
+      // TODO: 其实我也是挺好奇，为什么在这里就能够更改掉不合适的参考关键帧了呢
+      // ?? 我也不懂啊 如果这里的参考KF不叻 那么他相对于他的父关键帧也不叻吧？
+
+      // TODO: 这里的函数GetPose()和上面的mTcp有什么不同？
+      // TODO: Answer: 竹曼理解，current wrt parent 和 current wrt world
       //最后一个Two是原点校正
-      //最终得到的是参考关键帧相对于世界坐标系的变换
+      //最终得到的是参考关键帧相对于世界坐标系的变换 //??? 不是相对于原点吗？？？？
+      // refKF wrt worldTODO:??? = init guess * currentKF wrt world * world wrt orignal
       Trw = Trw * pKF->GetPose() * Two;
 
       //在此基础上得到相机当前帧相对于世界坐标系的变换
+      // current wrt world = currentF wrt its KF (relativeKF) * relativeKF wrt orignal
+      // ?? 好吧可能原点就是世界坐标吧 他这么写的话
       cv::Mat Tcw = (*lit) * Trw;
+
       //然后分解出旋转矩阵
       cv::Mat Rwc = Tcw.rowRange(0, 3).colRange(0, 3).t();
       //以及平移向量
@@ -567,7 +583,7 @@ namespace ORB_SLAM2
       f << setprecision(6) << *lT << " " << setprecision(9) << twc.at<float>(0)
         << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " " << q[0]
         << " " << q[1] << " " << q[2] << " " << q[3] << endl;
-    } ////对于每一个mlRelativeFramePoses中的帧lit所进行的操作
+    } // end 对于每一个mlRelativeFramePoses中的帧lit所进行的操作
 
     //操作完毕，关闭文件并且输出调试信息
     f.close();
@@ -579,13 +595,14 @@ namespace ORB_SLAM2
   void System::SaveKeyFrameTrajectoryTUM(const string &filename)
   {
     cout << endl
-         << "Saving keyframe trajectory to " << filename << " ..." << endl;
+         << "Saving keyframe trajectory to " << filename
+         << " ..." << endl;
 
     //获取关键帧vector并按照生成时间对其进行排序
     vector<KeyFrame *> vpKFs = mpMap->GetAllKeyFrames();
     sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
 
-    //本来这里需要进行原点校正，但是实际上没有做
+    //本来这里需要进行原点校正，但是实际上没有做 TODO: 为什么呢？
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
     // cv::Mat Two = vpKFs[0]->GetPoseInverse();
@@ -611,7 +628,7 @@ namespace ORB_SLAM2
       //抽取旋转部分和平移部分，前者使用四元数表示
       cv::Mat R = pKF->GetRotation().t();
       vector<float> q = Converter::toQuaternion(R);
-      cv::Mat t = pKF->GetCameraCenter();
+      cv::Mat t = pKF->GetCameraCenter(); // 获取(左目)相机的中心在世界坐标系下的坐标
       //按照给定的格式输出到文件中
       f << setprecision(6) << pKF->mTimeStamp << setprecision(7) << " "
         << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2) << " "
@@ -657,11 +674,18 @@ namespace ORB_SLAM2
     // a flag which is true when tracking failed (lbL).
     list<ORB_SLAM2::KeyFrame *>::iterator lRit = mpTracker->mlpReferences.begin();
     list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
-    for (list<cv::Mat>::iterator lit = mpTracker->mlRelativeFramePoses.begin(),
-                                 lend = mpTracker->mlRelativeFramePoses.end();
-         lit != lend; lit++, lRit++, lT++)
+
+    for (list<cv::Mat>::iterator
+             lit = mpTracker->mlRelativeFramePoses.begin(),
+             lend = mpTracker->mlRelativeFramePoses.end();
+         lit != lend;
+         lit++, lRit++, lT++)
     {
-      ORB_SLAM2::KeyFrame *pKF = *lRit;
+      // ?? 为什么不需要lbL 检查每帧的追踪状态
+
+      // ?? 为什么需要制定namespace
+      // ORB_SLAM2::KeyFrame *pKF = *lRit;
+      KeyFrame *pKF = *lRit;
 
       cv::Mat Trw = cv::Mat::eye(4, 4, CV_32F);
 
@@ -697,7 +721,7 @@ namespace ORB_SLAM2
     return mTrackingState;
   }
 
-  //获取追踪到的地图点（其实实际上得到的是一个指针）
+  //获取追踪到的地图点（实际上得到的是一个指针）
   vector<MapPoint *> System::GetTrackedMapPoints()
   {
     unique_lock<mutex> lock(mMutexState);

@@ -61,6 +61,7 @@ int main(int argc, char **argv)
             << endl;
         return 1;
     }
+    // ../Examples/rgbd_tum 
 
     // step 1 Retrieve paths to images
     //按顺序存放需要读取的彩色图像、深度图像的路径，以及对应的时间戳的变量

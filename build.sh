@@ -1,3 +1,6 @@
+cd build
+../Examples/Stereo/stereo_kitti ../Vocabulary/ORBvoc.txt ../Examples/Stereo/KITTI03.yaml /mnt/hgfs/code/data_odometry_gray/00/
+
 echo "Configuring and building Thirdparty/DBoW2 ..."
 
 cd Thirdparty/DBoW2

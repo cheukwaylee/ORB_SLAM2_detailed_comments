@@ -43,7 +43,7 @@ namespace ORB_SLAM2
         ExtractorNode() : bNoMore(false) {}
 
         /**
-         * @brief 在八叉树分配特征点的过程中，实现一个节点分裂为4个节点的操作
+         * @brief 在八叉树分配特征点的过程中，实现一个节点分裂为4个节点的操作（2d图四叉树）
          *
          * @param[out] n1   分裂的节点1
          * @param[out] n2   分裂的节点2
@@ -54,25 +54,28 @@ namespace ORB_SLAM2
 
         ///保存有当前节点的特征点
         std::vector<cv::KeyPoint> vKeys;
+
         ///当前节点所对应的图像坐标边界
         cv::Point2i UL, UR, BL, BR;
-        //存储提取器节点的列表（其实就是双向链表）的一个迭代器,可以参考[http://www.runoob.com/cplusplus/cpp-overloading.html]
+
+        //存储提取器节点的列表（其实就是双向链表）的一个迭代器,
+        //可以参考[http://www.runoob.com/cplusplus/cpp-overloading.html]
         //这个迭代器提供了访问总节点列表的方式，需要结合cpp文件进行分析
         std::list<ExtractorNode>::iterator lit;
 
-        ///如果节点中只有一个特征点的话，说明这个节点不能够再进行分裂了，这个标志置位
-        //这个节点中如果没有特征点的话，这个节点就直接被删除了
+        //如果节点中只有一个特征点的话，说明这个节点不能够再进行分裂了，这个标志置位
         bool bNoMore;
+
+        //这个节点中如果没有特征点的话，这个节点就直接被删除了
     };
 
     /**
      * @brief ORB特征点提取器
-     *
      */
     class ORBextractor
     {
     public:
-        // TODO 但是在程序中好像并没有被用到
+        // TODO: 但是在程序中好像并没有被用到
         ///定义一个枚举类型用于表示使用HARRIS响应值还是使用FAST响应值
         enum
         {
@@ -82,13 +85,13 @@ namespace ORB_SLAM2
 
         /**
          * @brief 构造函数
-         * @detials 之所以会有两种响应值的阈值，原因是，程序先使用初始的默认FAST响应值阈值提取图像cell中的特征点；如果提取到的
-         * 特征点数目不足，那么就降低要求，使用较小FAST响应值阈值进行再次提取，以获得尽可能多的FAST角点。
-         * @param[in] nfeatures         指定要提取出来的特征点数目
+         * @detials 有两种响应值的阈值的原因是，程序先使用初始的默认FAST响应值阈值提取图像cell中的特征点；
+         * 如果提取到的特征点数目不足，那么就降低要求，使用较小FAST响应值阈值进行再次提取，以获得尽可能多的FAST角点。
+         * @param[in] nfeatures        指定要提取出来的特征点数目
          * @param[in] scaleFactor       图像金字塔的缩放系数
-         * @param[in] nlevels           指定需要提取特征点的图像金字塔层
-         * @param[in] iniThFAST         初始的默认FAST响应值阈值
-         * @param[in] minThFAST         较小的FAST响应值阈值
+         * @param[in] nlevels         指定需要提取特征点的图像金字塔层
+         * @param[in] iniThFAST        初始的默认FAST响应值阈值
+         * @param[in] minThFAST        较小的FAST响应值阈值
          */
         ORBextractor(int nfeatures, float scaleFactor, int nlevels, int iniThFAST, int minThFAST);
 
@@ -103,12 +106,15 @@ namespace ORB_SLAM2
          * @brief 使用八叉树的方法将提取到的ORB特征点尽可能均匀地分布在整个图像中
          * @details 这里是重载了这个ORBextractor类的括号运算符;函数中实际上并没有用到MASK这个参数。
          *
-         * @param[in] image         要操作的图像
-         * @param[in] mask          图像掩膜，辅助进行图片处理，可以参考[https://www.cnblogs.com/skyfsm/p/6894685.html]
-         * @param[out] keypoints    保存提取出来的特征点的向量
+         * @param[in]  image     要操作的图像
+         * @param[in]  mask     图像掩膜，辅助进行图片处理，可以参考[https://www.cnblogs.com/skyfsm/p/6894685.html]
+         * @param[out] keypoints   保存提取出来的特征点的向量
          * @param[out] descriptors  输出用的保存特征点描述子的cv::Mat
          */
-        void operator()(cv::InputArray image, cv::InputArray mask, std::vector<cv::KeyPoint> &keypoints, cv::OutputArray descriptors);
+        void operator()(
+            cv::InputArray image, cv::InputArray mask,
+            std::vector<cv::KeyPoint> &keypoints,
+            cv::OutputArray descriptors);
 
         //下面的这些内联函数都是用来直接获取类的成员变量的
 
@@ -180,24 +186,28 @@ namespace ORB_SLAM2
 
         /**
          * @brief 以八叉树分配特征点的方式，计算图像金字塔中的特征点
-         * @detials 这里两层vector的意思是，第一层存储的是某张图片中的所有特征点，而第二层则是存储图像金字塔中所有图像的vectors of keypoints
+         * @detials 这里两层vector的意思是，第一层存储的是某张图片中的所有特征点，
+         *      而第二层则是存储图像金字塔中所有图像的vectors of keypoints
          * @param[out] allKeypoints 提取得到的所有特征点
          */
+        // ?? 竹曼的理解 allKeypoints.size()  == 金字塔层数
+        // ??       allKeypoints[0].size() == 第一层的特征点数
         void ComputeKeyPointsOctTree(std::vector<std::vector<cv::KeyPoint>> &allKeypoints);
 
         /**
          * @brief 对于某一图层，分配其特征点，通过八叉树的方式
          * @param[in] vToDistributeKeys         等待分配的特征点
-         * @param[in] minX                      分发的图像范围
-         * @param[in] maxX                      分发的图像范围
-         * @param[in] minY                      分发的图像范围
-         * @param[in] maxY                      分发的图像范围
-         * @param[in] nFeatures                 设定的、本图层中想要提取的特征点数目
-         * @param[in] level                     要提取的图像所在的金字塔层
+         * @param[in] minX                分发的图像范围
+         * @param[in] maxX                分发的图像范围
+         * @param[in] minY                分发的图像范围
+         * @param[in] maxY                分发的图像范围
+         * @param[in] nFeatures             设定的、本图层中想要提取的特征点数目
+         * @param[in] level               要提取的图像所在的金字塔层
          * @return std::vector<cv::KeyPoint>
          */
         std::vector<cv::KeyPoint> DistributeOctTree(
-            const std::vector<cv::KeyPoint> &vToDistributeKeys, const int &minX, const int &maxX, const int &minY, const int &maxY,
+            const std::vector<cv::KeyPoint> &vToDistributeKeys,
+            const int &minX, const int &maxX, const int &minY, const int &maxY,
             const int &nFeatures, const int &level);
 
         /**
@@ -208,7 +218,7 @@ namespace ORB_SLAM2
 
         // NOTE 作者不地道啊，这里是类的成员变量，说好的变量名的m前缀呢？
 
-        std::vector<cv::Point> pattern; ///<用于计算描述子的随机采样点集合
+        std::vector<cv::Point> pattern; ///<用于计算描述子的随机采样点的集合
 
         int nfeatures;      ///<整个图像金字塔中，要提取的特征点数目
         double scaleFactor; ///<图像金字塔层与层之间的缩放因子
