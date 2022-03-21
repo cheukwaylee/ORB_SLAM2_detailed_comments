@@ -61,7 +61,7 @@ int main(int argc, char **argv)
             << endl;
         return 1;
     }
-    // ../Examples/rgbd_tum 
+    // ../Examples/rgbd_tum
 
     // step 1 Retrieve paths to images
     //按顺序存放需要读取的彩色图像、深度图像的路径，以及对应的时间戳的变量
@@ -140,7 +140,7 @@ int main(int argc, char **argv)
 #endif
 
         // 计算耗时
-        double ttrack = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
+        double ttrack = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count(); // second
         vTimesTrack[ni] = ttrack;
 
         // step 4.3 Wait to load the next frame
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
         if (ttrack < T)
             // 当前帧处理时间小于帧间时间差，即快了
             // 把快了的时间耗费掉，CPU等数据
-            usleep((T - ttrack) * 1e6);
+            usleep((T - ttrack) * 1e6); // second to usec
     }
 
     // step 5 Stop all threads
@@ -175,8 +175,8 @@ int main(int argc, char **argv)
     }
     cout << "-------" << endl
          << endl;
-    cout << "median tracking time: " << vTimesTrack[nImages / 2] << endl;
-    cout << "mean tracking time: " << totaltime / nImages << endl;
+    cout << "median tracking time: " << vTimesTrack[nImages / 2] << " second" << endl;
+    cout << "mean tracking time: " << totaltime / nImages << " second" << endl;
 
     // Save camera trajectory
     //保存最终的相机轨迹

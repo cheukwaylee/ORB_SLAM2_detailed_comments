@@ -62,7 +62,6 @@ namespace ORB_SLAM2
 
     /**
      * @brief  追踪当前帧功能
-     *
      */
     class Tracking
     {
@@ -71,17 +70,23 @@ namespace ORB_SLAM2
         /**
          * @brief 构造函数
          *
-         * @param[in] pSys              系统实例
-         * @param[in] pVoc              字典指针
+         * @param[in] pSys          系统实例
+         * @param[in] pVoc          字典指针
          * @param[in] pFrameDrawer      帧绘制器
-         * @param[in] pMapDrawer        地图绘制器
-         * @param[in] pMap              地图句柄
-         * @param[in] pKFDB             关键帧数据库句柄
-         * @param[in] strSettingPath    配置文件路径
-         * @param[in] sensor            传感器类型
+         * @param[in] pMapDrawer       地图绘制器
+         * @param[in] pMap          地图句柄
+         * @param[in] pKFDB          关键帧数据库句柄
+         * @param[in] strSettingPath     配置文件路径
+         * @param[in] sensor         传感器类型
          */
-        Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap,
-                 KeyFrameDatabase *pKFDB, const string &strSettingPath, const int sensor);
+        Tracking(
+            System *pSys,
+            ORBVocabulary *pVoc,
+            FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer,
+            Map *pMap,
+            KeyFrameDatabase *pKFDB,
+            const string &strSettingPath,
+            const int sensor);
 
         // Preprocess the input and call Track(). Extract features and performs stereo matching.
         // 下面的函数都是对不同的传感器输入的图像进行处理(转换成为灰度图像),并且调用Tracking线程
@@ -90,29 +95,37 @@ namespace ORB_SLAM2
          *
          * @param[in] imRectLeft    左目图像
          * @param[in] imRectRight   右目图像
-         * @param[in] timestamp     时间戳
-         * @return cv::Mat          世界坐标系到该帧相机坐标系的变换矩阵
+         * @param[in] timestamp    时间戳
+         * @return cv::Mat       世界坐标系到该帧相机坐标系的变换矩阵
          */
-        cv::Mat GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp);
+        cv::Mat GrabImageStereo(
+            const cv::Mat &imRectLeft,
+            const cv::Mat &imRectRight,
+            const double &timestamp);
 
         /**
          * @brief 处理RGBD输入的图像
          *
-         * @param[in] imRGB         彩色图像
-         * @param[in] imD           深度图像
-         * @param[in] timestamp     时间戳
-         * @return cv::Mat          世界坐标系到该帧相机坐标系的变换矩阵
+         * @param[in] imRGB     彩色图像
+         * @param[in] imD      深度图像
+         * @param[in] timestamp   时间戳
+         * @return cv::Mat      世界坐标系到该帧相机坐标系的变换矩阵
          */
-        cv::Mat GrabImageRGBD(const cv::Mat &imRGB, const cv::Mat &imD, const double &timestamp);
+        cv::Mat GrabImageRGBD(
+            const cv::Mat &imRGB,
+            const cv::Mat &imD,
+            const double &timestamp);
 
         /**
          * @brief 处理单目输入图像
          *
-         * @param[in] im            图像
+         * @param[in] im         图像
          * @param[in] timestamp     时间戳
-         * @return cv::Mat          世界坐标系到该帧相机坐标系的变换矩阵
+         * @return cv::Mat        世界坐标系到该帧相机坐标系的变换矩阵
          */
-        cv::Mat GrabImageMonocular(const cv::Mat &im, const double &timestamp);
+        cv::Mat GrabImageMonocular(
+            const cv::Mat &im,
+            const double &timestamp);
 
         /**
          * @brief 设置局部地图句柄
@@ -160,7 +173,7 @@ namespace ORB_SLAM2
         {
             SYSTEM_NOT_READY = -1, ///<系统没有准备好的状态,一般就是在启动后加载配置文件和词典文件时候的状态
             NO_IMAGES_YET = 0,     ///<当前无图像
-            NOT_INITIALIZED = 1,   ///<有图像但是没有完成初始化
+            NOT_INITIALIZED = 1,   ///<有图像但是没有完成初始化，//? 第一帧用作初始化完成之前？
             OK = 2,                ///<正常时候的工作状态
             LOST = 3               ///<系统已经跟丢了的状态
         };
@@ -170,15 +183,15 @@ namespace ORB_SLAM2
         ///上一帧的跟踪状态.这个变量在绘制当前帧的时候会被使用到
         eTrackingState mLastProcessedState;
 
-        // Input sensor:MONOCULAR, STEREO, RGBD
+        // Input sensor: MONOCULAR, STEREO, RGBD //TODO: 为什么不是枚举
         ///传感器类型
         int mSensor;
 
         // Current Frame
         ///追踪线程中有一个当前帧
         Frame mCurrentFrame;
-        ///> 还有当前帧的灰度图像 //? 提问,那么在双目输入和在RGBD输入的时候呢?
-        ///>                        在双目输入和在RGBD输入时，为左侧图像的灰度图
+        ///> 还有当前帧的灰度图像 // 提问,那么在双目输入和在RGBD输入的时候呢?
+        ///>             // ANSWER 在双目输入和在RGBD输入时，为左侧图像的灰度图
         cv::Mat mImGray;
 
         // Initialization Variables (Monocular)
@@ -216,6 +229,7 @@ namespace ORB_SLAM2
 
     protected:
         // Main tracking function. It is independent of the input sensor.
+        // feature-based abstract desgin
         /** @brief 主追踪进程 */
         void Track();
 
@@ -233,11 +247,12 @@ namespace ORB_SLAM2
         /**
          * @brief 检查上一帧中的MapPoints是否被替换
          *
-         * Local Mapping线程可能会将关键帧中某些MapPoints进行替换，由于tracking中需要用到mLastFrame，这里检查并更新上一帧中被替换的MapPoints
+         * Local Mapping线程可能会将关键帧中某些MapPoints进行替换，
+         * 由于tracking中需要用到mLastFrame，这里检查并更新上一帧中被替换的MapPoints
          * @see LocalMapping::SearchInNeighbors()
          */
-
         void CheckReplacedInLastFrame();
+
         /**
          * @brief 对参考关键帧的MapPoints进行跟踪
          *
@@ -247,15 +262,14 @@ namespace ORB_SLAM2
          * 4. 根据姿态剔除误匹配
          * @return 如果匹配数大于10，返回true
          */
-
         bool TrackReferenceKeyFrame();
+
         /**
          * @brief 双目或rgbd摄像头根据深度值为上一帧产生新的MapPoints
          *
          * 在双目和rgbd情况下，选取一些深度小一些的点（可靠一些） \n
          * 可以通过深度值产生一些新的MapPoints
          */
-
         void UpdateLastFrame();
 
         /**
@@ -299,15 +313,18 @@ namespace ORB_SLAM2
 
         /**
          * @brief 对Local Map的MapPoints进行跟踪
+         *
          * Step 1：更新局部关键帧 mvpLocalKeyFrames 和局部地图点 mvpLocalMapPoints
          * Step 2：在局部地图中查找与当前帧匹配的MapPoints, 其实也就是对局部地图点进行跟踪
          * Step 3：更新局部所有MapPoints后对位姿再次优化
          * Step 4：更新当前帧的MapPoints被观测程度，并统计跟踪局部地图的效果
          * Step 5：根据跟踪匹配数目及回环情况决定是否跟踪成功
-         * @return true         跟踪成功
+         *
+         * @return true        跟踪成功
          * @return false        跟踪失败
          */
         bool TrackLocalMap();
+
         /**
          * @brief 对 Local MapPoints 进行跟踪
          *
@@ -320,6 +337,7 @@ namespace ORB_SLAM2
          * @return true if needed
          */
         bool NeedNewKeyFrame();
+
         /**
          * @brief 创建新的关键帧
          *
@@ -328,9 +346,9 @@ namespace ORB_SLAM2
         void CreateNewKeyFrame();
 
         // In case of performing only localization, this flag is true when there are no matches to
-        // points in the map. Still tracking will continue if there are enough matches with temporal points.
-        // In that case we are doing visual odometry. The system will try to do relocalization to recover
-        // "zero-drift" localization to the map.
+        // points in the map （坏事）. Still tracking will continue if there are enough matches
+        // with temporal points. In that case we are doing visual odometry. The system will
+        // try to do relocalization to recover "zero-drift" localization to the map.
         ///当进行纯定位时才会有的一个变量,为false表示该帧匹配了很多的地图点,跟踪是正常的;如果少于10个则为true,表示快要完蛋了
         bool mbVO;
 
@@ -345,9 +363,9 @@ namespace ORB_SLAM2
         //  orb特征提取器，不管单目还是双目，mpORBextractorLeft都要用到
         //  如果是双目，则要用到mpORBextractorRight
         //  NOTICE 如果是单目，在初始化的时候使用mpIniORBextractor而不是mpORBextractorLeft，
-        //  mpIniORBextractor属性中提取的特征点个数是mpORBextractorLeft的两倍
+        //  （mpIniORBextractor属性中提取的特征点个数是mpORBextractorLeft的两倍）
 
-        ///作者自己编写和改良的ORB特征点提取器
+        ///作者自己编写和改良的ORB特征点提取器（双目）
         ORBextractor *mpORBextractorLeft, *mpORBextractorRight;
         ///在初始化的时候使用的特征点提取器,其提取到的特征点个数会更多
         ORBextractor *mpIniORBextractor;
@@ -364,7 +382,7 @@ namespace ORB_SLAM2
 
         // Local Map 局部地图相关
         ///参考关键帧
-        KeyFrame *mpReferenceKF; // 当前关键帧就是参考帧
+        KeyFrame *mpReferenceKF; // 当前关键帧（就目前而言最新的关键帧）就是参考帧
         ///局部关键帧集合
         std::vector<KeyFrame *> mvpLocalKeyFrames;
         ///局部地图点的集合
@@ -391,18 +409,18 @@ namespace ORB_SLAM2
         cv::Mat mK;
         ///相机的去畸变参数
         cv::Mat mDistCoef;
-        ///相机的基线长度 * 相机的焦距
+        ///相机的基线长度 * 相机的焦距 //? 用于视差测量？
         float mbf;
 
-        // New KeyFrame rules (according to fps)
-        //  新建关键帧和重定位中用来判断最小最大时间间隔，和帧率有关
+        // New KeyFrame rules (according to fps) //? max/min fps?
+        // 新建关键帧和重定位中用来判断最小最大时间间隔，和帧率有关 //? 时间间隔？
         int mMinFrames;
         int mMaxFrames;
 
         // Threshold close/far points
         // Points seen as close by the stereo/RGBD sensor are considered reliable
         // and inserted from just one frame. Far points requiere a match in two keyframes.
-        ///用于区分远点和近点的阈值. 近点认为可信度比较高;远点则要求在两个关键帧中得到匹配
+        ///用于区分远点和近点的阈值. 近点认为可信度比较高; 远点则要求在两个关键帧中得到匹配
         float mThDepth;
 
         // For RGB-D inputs only. For some datasets (e.g. TUM) the depthmap values are scaled.

@@ -84,12 +84,12 @@ namespace ORB_SLAM2
   {
     // Load camera parameters from settings file
     // Step 1 从配置文件中加载相机参数
-    // 参数从ymal读入，而const变量要在声明的时候指定具体数值（所以不能const）
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
-    float fx = fSettings["Camera.fx"];
-    float fy = fSettings["Camera.fy"];
-    float cx = fSettings["Camera.cx"];
-    float cy = fSettings["Camera.cy"];
+    //? 参数从ymal读入，而const变量要在声明的时候指定具体数值（所以不能const???）
+    const float fx = fSettings["Camera.fx"];
+    const float fy = fSettings["Camera.fy"];
+    const float cx = fSettings["Camera.cx"];
+    const float cy = fSettings["Camera.cy"];
 
     //     |fx  0   cx|
     // K =  |0   fy  cy|
@@ -100,7 +100,7 @@ namespace ORB_SLAM2
     K.at<float>(1, 1) = fy;
     K.at<float>(0, 2) = cx;
     K.at<float>(1, 2) = cy;
-    K.copyTo(mK);
+    K.copyTo(mK); // mK = K 赋值给成员变量mK
 
     // 图像矫正系数
     // [k1 k2 p1 p2 k3]
@@ -116,7 +116,7 @@ namespace ORB_SLAM2
       DistCoef.resize(5);
       DistCoef.at<float>(4) = k3;
     }
-    DistCoef.copyTo(mDistCoef);
+    DistCoef.copyTo(mDistCoef); // mDistCoef = DistCoef 赋值给成员变量mDistCoef
 
     // 双目摄像头baseline * fx 50
     mbf = fSettings["Camera.bf"];
@@ -145,7 +145,7 @@ namespace ORB_SLAM2
     cout << "- fps: " << fps << endl;
 
     // 1:RGB 0:BGR
-    int nRGB = fSettings["Camera.RGB"];
+    const int nRGB = fSettings["Camera.RGB"];
     mbRGB = nRGB;
 
     if (mbRGB)
@@ -154,9 +154,8 @@ namespace ORB_SLAM2
       cout << "- color order: BGR (ignored if grayscale)" << endl;
 
     // Load ORB parameters
-
     // Step 2 加载ORB特征点有关的参数,并新建特征点提取器
-
+    //? 为什么不能const？
     // 每一帧提取的特征点数 1000
     int nFeatures = fSettings["ORBextractor.nFeatures"];
     // 图像建立金字塔时的变化尺度 1.2
@@ -170,18 +169,17 @@ namespace ORB_SLAM2
 
     // tracking过程都会用到mpORBextractorLeft作为特征点提取器
     mpORBextractorLeft =
-        new ORBextractor(nFeatures, //参数的含义还是看上面的注释吧
-                         fScaleFactor, nLevels, fIniThFAST, fMinThFAST);
+        new ORBextractor(nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST);
 
     // 如果是双目，tracking过程中还会用用到mpORBextractorRight作为右目特征点提取器
     if (sensor == System::STEREO)
-      mpORBextractorRight = new ORBextractor(nFeatures, fScaleFactor, nLevels,
-                                             fIniThFAST, fMinThFAST);
+      mpORBextractorRight =
+          new ORBextractor(nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST);
 
-    // 在单目初始化的时候，会用mpIniORBextractor来作为特征点提取器
+    // 在单目初始化的时候，会用mpIniORBextractor来作为特征点提取器 // 两倍特征点数
     if (sensor == System::MONOCULAR)
-      mpIniORBextractor = new ORBextractor(2 * nFeatures, fScaleFactor, nLevels,
-                                           fIniThFAST, fMinThFAST);
+      mpIniORBextractor =
+          new ORBextractor(2 * nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST);
 
     cout << endl
          << "ORB Extractor Parameters: " << endl;
@@ -193,7 +191,7 @@ namespace ORB_SLAM2
 
     if (sensor == System::STEREO || sensor == System::RGBD)
     {
-      // 判断一个3D点远/近的阈值 mbf * 35 / fx
+      // 判断一个3D点远/近的阈值 mbf * (35~40) / fx
       // ThDepth其实就是表示基线长度的多少倍
       mThDepth = mbf * (float)fSettings["ThDepth"] / fx;
       cout << endl
@@ -204,6 +202,7 @@ namespace ORB_SLAM2
     {
       // 深度相机disparity转化为depth时的因子
       mDepthMapFactor = fSettings["DepthMapFactor"];
+      //? 原理是啥？
       if (fabs(mDepthMapFactor) < 1e-5)
         mDepthMapFactor = 1;
       else
@@ -224,13 +223,15 @@ namespace ORB_SLAM2
   }
 
   //设置可视化查看器
-  void Tracking::SetViewer(Viewer *pViewer) { mpViewer = pViewer; }
+  void Tracking::SetViewer(Viewer *pViewer)
+  {
+    mpViewer = pViewer;
+  }
 
   // 输入左右目图像，可以为RGB、BGR、RGBA、GRAY
-  // 1、将图像转为mImGray和imGrayRight并初始化mCurrentFrame
+  // 1、将图像转为mImGray和imGrayRight 并初始化mCurrentFrame
   // 2、进行tracking过程
   // 输出世界坐标系到该帧相机坐标系的变换矩阵
-
   cv::Mat Tracking::GrabImageStereo(
       const cv::Mat &imRectLeft,  //左侧图像
       const cv::Mat &imRectRight, //右侧图像
@@ -269,16 +270,17 @@ namespace ORB_SLAM2
     }
 
     // Step 2 ：构造Frame对象
-    mCurrentFrame = Frame(mImGray,             //左目图像
-                          imGrayRight,         //右目图像
-                          timestamp,           //时间戳
-                          mpORBextractorLeft,  //左目特征提取器
-                          mpORBextractorRight, //右目特征提取器
-                          mpORBVocabulary,     //字典
-                          mK,                  //内参矩阵
-                          mDistCoef,           //去畸变参数
-                          mbf,                 //基线长度
-                          mThDepth);           //远点,近点的区分阈值
+    mCurrentFrame = Frame(
+        mImGray,             //左目图像
+        imGrayRight,         //右目图像
+        timestamp,           //时间戳
+        mpORBextractorLeft,  //左目特征提取器
+        mpORBextractorRight, //右目特征提取器
+        mpORBVocabulary,     //字典
+        mK,                  //内参矩阵
+        mDistCoef,           //去畸变参数
+        mbf,                 //基线长度
+        mThDepth);           //远点,近点的区分阈值
 
     // Step 3 ：跟踪
     Track();
@@ -291,9 +293,11 @@ namespace ORB_SLAM2
   // 1、将图像转为mImGray和imDepth并初始化mCurrentFrame
   // 2、进行tracking过程
   // 输出世界坐标系到该帧相机坐标系的变换矩阵
-  cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,    //彩色图像
-                                  const cv::Mat &imD,      //深度图像
-                                  const double &timestamp) //时间戳
+  cv::Mat Tracking::GrabImageRGBD(
+      const cv::Mat &imRGB,   //彩色图像
+      const cv::Mat &imD,     //深度图像
+      const double &timestamp //时间戳
+  )
   {
     mImGray = imRGB;
     cv::Mat imDepth = imD;
@@ -314,29 +318,29 @@ namespace ORB_SLAM2
         cvtColor(mImGray, mImGray, CV_BGRA2GRAY);
     }
 
-    // step 2 ：将深度相机的disparity转为Depth , 也就是转换成为真正尺度下的深度
-    //这里的判断条件感觉有些尴尬
-    //前者和后者满足一个就可以了
-    //满足前者意味着,mDepthMapFactor 相对1来讲要足够大
-    //满足后者意味着,如果深度图像不是浮点型? 才会执行
-    //意思就是说,如果读取到的深度图像是浮点型,就不执行这个尺度的变换操作了呗? TODO
+    // step 2 ：将深度相机的disparity转为Depth, 也就是转换成为真正尺度下的深度
+    // 还原视差图的深度信息
+    //这里的判断条件感觉有些尴尬，前者和后者满足一个就可以了
+    //满足前者意味着, mDepthMapFactor 相对1来讲要足够大 //? 1e-5 足够大？？
+    //满足后者意味着, 如果深度图像不是浮点型? 才会执行
     if ((fabs(mDepthMapFactor - 1.0f) > 1e-5) || imDepth.type() != CV_32F)
-      imDepth
-          .convertTo(           //将图像转换成为另外一种数据类型,具有可选的数据大小缩放系数
-              imDepth,          //输出图像
-              CV_32F,           //输出图像的数据类型
-              mDepthMapFactor); //缩放系数
+      //将图像转换成为另外一种数据类型,具有可选的数据大小缩放系数
+      imDepth.convertTo(
+          imDepth,          //输出图像
+          CV_32F,           //输出图像的数据类型
+          mDepthMapFactor); //缩放系数
 
     // 步骤3：构造Frame
-    mCurrentFrame = Frame(mImGray,            //灰度图像
-                          imDepth,            //深度图像
-                          timestamp,          //时间戳
-                          mpORBextractorLeft, // ORB特征提取器
-                          mpORBVocabulary,    //词典
-                          mK,                 //相机内参矩阵
-                          mDistCoef,          //相机的去畸变参数
-                          mbf,                //相机基线*相机焦距
-                          mThDepth);          //内外点区分深度阈值
+    mCurrentFrame = Frame(
+        mImGray,            //灰度图像
+        imDepth,            //深度图像
+        timestamp,          //时间戳
+        mpORBextractorLeft, // ORB特征提取器
+        mpORBVocabulary,    //词典
+        mK,                 //相机内参矩阵
+        mDistCoef,          //相机的去畸变参数
+        mbf,                //相机基线*相机焦距
+        mThDepth);          //内外点区分深度阈值
 
     // 步骤4：跟踪
     Track();
@@ -357,13 +361,13 @@ namespace ORB_SLAM2
    * Step 2 ：构造Frame
    * Step 3 ：跟踪
    */
-  cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im,
-                                       const double &timestamp)
+  cv::Mat Tracking::GrabImageMonocular(
+      const cv::Mat &im,
+      const double &timestamp)
   {
     mImGray = im;
 
     // Step 1 ：将彩色图像转为灰度图像
-    //若图片是3、4通道的，还需要转化成灰度图
     if (mImGray.channels() == 3)
     {
       if (mbRGB)
@@ -384,14 +388,24 @@ namespace ORB_SLAM2
     if (mState == NOT_INITIALIZED ||
         mState == NO_IMAGES_YET) //没有成功初始化的前一个状态就是NO_IMAGES_YET
       mCurrentFrame = Frame(
-          mImGray, timestamp,
+          mImGray,
+          timestamp,
           mpIniORBextractor, //初始化ORB特征点提取器会提取2倍的指定特征点数目
-          mpORBVocabulary, mK, mDistCoef, mbf, mThDepth);
+          mpORBVocabulary,
+          mK,
+          mDistCoef,
+          mbf,
+          mThDepth);
     else
       mCurrentFrame = Frame(
-          mImGray, timestamp,
+          mImGray,
+          timestamp,
           mpORBextractorLeft, //正常运行的时的ORB特征点提取器，提取指定数目特征点
-          mpORBVocabulary, mK, mDistCoef, mbf, mThDepth);
+          mpORBVocabulary,
+          mK,
+          mDistCoef,
+          mbf,
+          mThDepth);
 
     // Step 3 ：跟踪
     Track();

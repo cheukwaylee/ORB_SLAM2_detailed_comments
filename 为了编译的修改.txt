@@ -2,6 +2,12 @@
 为了编译通过！！！ROS相关的还没改
 
 **********************************************
+把
+find_package(Eigen3 3.1.0 REQUIRED)
+改为了
+find_package(Eigen3 3.1.0 REQUIRED NO_MODULE)
+
+**********************************************
 
 根目录的cmakelist改为c++14
 
@@ -31,17 +37,18 @@ COMPILEDWITHC14
 **********************************************
 
 LoopClosing.cc
-把
-    typedef map<
-        KeyFrame *,                                                      //键
-        g2o::Sim3,                                                       //值
-        std::less<KeyFrame *>,                                           //排序算法
-        Eigen::aligned_allocator<std::pair<KeyFrame *const, g2o::Sim3>>> // 指定分配器,和内存空间开辟有关. 为了能够使用Eigen库中的SSE和AVX指令集加速,需要将传统STL容器中的数据进行对齐处理
-        KeyFrameAndPose;
-改为了
+把 
     typedef map<
         KeyFrame *,                                                      //键
         g2o::Sim3,                                                       //值
         std::less<KeyFrame *>,                                           //排序算法
         Eigen::aligned_allocator<std::pair<const KeyFrame*, g2o::Sim3>>> // 指定分配器,和内存空间开辟有关. 为了能够使用Eigen库中的SSE和AVX指令集加速,需要将传统STL容器中的数据进行对齐处理
         KeyFrameAndPose;
+改为了
+    typedef map<
+        KeyFrame *,                                                      //键
+        g2o::Sim3,                                                       //值
+        std::less<KeyFrame *>,                                           //排序算法
+        Eigen::aligned_allocator<std::pair<KeyFrame *const, g2o::Sim3>>> // 指定分配器,和内存空间开辟有关. 为了能够使用Eigen库中的SSE和AVX指令集加速,需要将传统STL容器中的数据进行对齐处理
+        KeyFrameAndPose;
+    
