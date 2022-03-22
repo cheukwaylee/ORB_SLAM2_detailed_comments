@@ -213,7 +213,7 @@ namespace ORB_SLAM2
         list<cv::Mat> mlRelativeFramePoses;
         ///参考关键帧
         list<KeyFrame *> mlpReferences;
-        ///所有帧的时间戳  //? 还是关键帧的时间戳?
+        ///所有帧的时间戳  //? 还是关键帧的时间戳? 竹曼觉得很有可能是所有帧
         list<double> mlFrameTimes;
         ///是否跟丢的标志
         list<bool> mlbLost;
@@ -349,7 +349,9 @@ namespace ORB_SLAM2
         // points in the map （坏事）. Still tracking will continue if there are enough matches
         // with temporal points. In that case we are doing visual odometry. The system will
         // try to do relocalization to recover "zero-drift" localization to the map.
-        ///当进行纯定位时才会有的一个变量,为false表示该帧匹配了很多的地图点,跟踪是正常的;如果少于10个则为true,表示快要完蛋了
+        ///当进行纯定位时才会有的一个变量：
+        //  为false表示该帧匹配了很多的地图点,跟踪是正常的;
+        //  如果少于10个则为true,表示快要完蛋了
         bool mbVO;
 
         // Other Thread Pointers
@@ -441,7 +443,7 @@ namespace ORB_SLAM2
         // 上一次重定位的那一帧的ID
         unsigned int mnLastRelocFrameId;
 
-        // Motion Model
+        // uniform Motion Model
         cv::Mat mVelocity;
 
         // Color order (true RGB, false BGR, ignored if grayscale)
@@ -450,6 +452,7 @@ namespace ORB_SLAM2
 
         ///临时的地图点,用于提高双目和RGBD摄像头的帧间效果,用完之后就扔了
         list<MapPoint *> mlpTemporalPoints;
+
     }; // class Tracking
 
 } // namespace ORB_SLAM

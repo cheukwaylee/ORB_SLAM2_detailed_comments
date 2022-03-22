@@ -115,12 +115,16 @@ namespace ORB_SLAM2
      * @param[in] thDepth           远点和近点的深度区分阈值
      *
      */
-    Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp,
-                 ORBextractor *extractorLeft, ORBextractor *extractorRight, ORBVocabulary *voc,
-                 cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+    Frame::Frame(
+        const cv::Mat &imLeft, const cv::Mat &imRight,
+        const double &timeStamp,
+        ORBextractor *extractorLeft, ORBextractor *extractorRight,
+        ORBVocabulary *voc,
+        cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
         : mpORBvocabulary(voc),
           mpORBextractorLeft(extractorLeft), mpORBextractorRight(extractorRight),
-          mTimeStamp(timeStamp), mK(K.clone()), mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
+          mTimeStamp(timeStamp),
+          mK(K.clone()), mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
           mpReferenceKF(static_cast<KeyFrame *>(NULL))
     {
         // Step 1 帧的ID 自增

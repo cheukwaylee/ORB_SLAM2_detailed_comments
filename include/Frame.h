@@ -80,7 +80,7 @@ namespace ORB_SLAM2
         /**
          * @brief 拷贝构造函数
          * @details 复制构造函数, mLastFrame = Frame(mCurrentFrame) \n
-         * 如果不是自定以拷贝函数的话，系统自动生成的拷贝函数对于所有涉及分配内存的操作都将是浅拷贝 \n
+         * 如果不是自定义拷贝函数的话，系统自动生成的拷贝函数对于所有涉及分配内存的操作都将是浅拷贝 \n
          * @param[in] frame 引用
          * @note 另外注意，调用这个函数的时候，这个函数中隐藏的this指针其实是指向目标帧的
          */

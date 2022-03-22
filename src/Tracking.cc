@@ -415,7 +415,8 @@ namespace ORB_SLAM2
   }
 
   /*
-   * @brief Main tracking function. It is independent of the input sensor.
+   * @brief
+   * Main tracking function. It is independent of the input sensor.
    *
    * track包含两部分：估计运动、跟踪局部地图
    *
@@ -425,12 +426,9 @@ namespace ORB_SLAM2
    */
   void Tracking::Track()
   {
-    // track包含两部分：估计运动、跟踪局部地图
-
-    // mState为tracking的状态，包括 SYSTME_NOT_READY, NO_IMAGE_YET,
-    // NOT_INITIALIZED, OK, LOST
-    // 如果图像复位过、或者第一次运行，则为NO_IMAGE_YET状态
-    if (mState == NO_IMAGES_YET)
+    // mState为tracking的状态，包括 SYSTME_NOT_READY, NO_IMAGES_YET, NOT_INITIALIZED, OK, LOST
+    // 如果图像复位过、或者第一次运行，则为 NO_IMAGES_YET状态
+    if (mState == NO_IMAGES_YET) //? 什么逻辑？ 状态往前一步？
     {
       mState = NOT_INITIALIZED;
     }
@@ -440,8 +438,9 @@ namespace ORB_SLAM2
 
     // Get Map Mutex -> Map cannot be changed
     // 地图更新时加锁。保证地图不会发生变化
-    // 疑问:这样子会不会影响地图的实时更新?
-    // 回答：主要耗时在构造帧中特征点的提取和匹配部分,在那个时候地图是没有被上锁的,有足够的时间更新地图
+    //  Question: 这样子会不会影响地图的实时更新?
+    //  Ansewer:  主要耗时在构造帧//?(构造帧是啥 关键帧吗？)//中特征点的提取和匹配部分,
+    //        在那个时候地图是没有被上锁的,有足够的时间更新地图
     unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
 
     // Step 1：地图初始化
@@ -457,26 +456,26 @@ namespace ORB_SLAM2
       //更新帧绘制器中存储的最新状态
       mpFrameDrawer->Update(this);
 
-      //这个状态量在上面的初始化函数中被更新
-      if (mState != OK)
+      //这个状态量被上面的初始化函数中被更新
+      if (mState != OK) //? 意味着初始化失败？
         return;
     }
+
+    // System is initialized. Track Frame.
+    // 不需要初始化 直接跟踪当前帧就行
     else
     {
-      // System is initialized. Track Frame.
       // bOK为临时变量，用于表示每个函数是否执行成功
       bool bOK;
 
-      // Initial camera pose estimation using motion model or relocalization (if
-      // tracking is lost)
+      // Initial camera pose estimation using motion model or relocalization (if tracking is lost)
       // mbOnlyTracking等于false表示正常SLAM模式（定位+地图更新），mbOnlyTracking等于true表示仅定位模式
-      // tracking
-      // 类构造时默认为false。在viewer中有个开关ActivateLocalizationMode，可以控制是否开启mbOnlyTracking
+      // tracking类构造时默认为false
+      // 在viewer中有个开关ActivateLocalizationMode，可以控制是否开启mbOnlyTracking
       if (!mbOnlyTracking)
       {
         // Local Mapping is activated. This is the normal behaviour, unless
         // you explicitly activate the "only tracking" mode.
-
         // Step 2：跟踪进入正常SLAM模式，有地图更新
         // 是否正常跟踪
         if (mState == OK)
@@ -487,23 +486,23 @@ namespace ORB_SLAM2
           CheckReplacedInLastFrame();
 
           // Step 2.2
-          // 运动模型是空的或刚完成重定位，跟踪参考关键帧；否则恒速模型跟踪
+          // 运动模型是空的 或 刚完成重定位： 跟踪参考关键帧；否则恒速模型跟踪
           // 第一个条件,如果运动模型为空,说明是刚初始化开始，或者已经跟丢了
           // 第二个条件,如果当前帧紧紧地跟着在重定位的帧的后面，我们将重定位帧来恢复位姿
-          // mnLastRelocFrameId 上一次重定位的那一帧
-          if (mVelocity.empty() || mCurrentFrame.mnId < mnLastRelocFrameId + 2)
+          //       mnLastRelocFrameId 上一次重定位的那一帧
+          if (mVelocity.empty() || ((mCurrentFrame.mnId - mnLastRelocFrameId) < 2))
           {
             // 用最近的关键帧来跟踪当前的普通帧
-            // 通过BoW的方式在参考帧中找当前帧特征点的匹配点
-            // 优化每个特征点都对应3D点重投影误差即可得到位姿
+            //    通过BoW的方式在参考帧中找当前帧特征点的匹配点
+            //    优化每个特征点都对应3D点重投影误差即可得到位姿
             bOK = TrackReferenceKeyFrame();
           }
           else
           {
             // 用最近的普通帧来跟踪当前的普通帧
-            // 根据恒速模型设定当前帧的初始位姿
-            // 通过投影的方式在参考帧中找当前帧特征点的匹配点
-            // 优化每个特征点所对应3D点的投影误差即可得到位姿
+            //    根据恒速模型设定当前帧的初始位姿
+            //    通过投影的方式在参考帧中找当前帧特征点的匹配点
+            //    优化每个特征点所对应3D点的投影误差即可得到位姿
             bOK = TrackWithMotionModel();
             if (!bOK)
               //根据恒速模型失败了，只能根据参考关键帧来跟踪
@@ -513,17 +512,17 @@ namespace ORB_SLAM2
         else
         {
           // 如果跟踪状态不成功,那么就只能重定位了
-          // BOW搜索，EPnP求解位姿
+          //    BOW搜索，EPnP求解位姿
           bOK = Relocalization();
         }
       }
       else
+      // Step 2：只进行跟踪tracking，局部地图不工作
+      // Localization Mode (mbOnlyTracking == true): Local Mapping is deactivated
       {
-        // Localization Mode: Local Mapping is deactivated
-        // Step 2：只进行跟踪tracking，局部地图不工作
+        // Step 2.1 如果跟丢了，只能重定位
         if (mState == LOST)
         {
-          // Step 2.1 如果跟丢了，只能重定位
           bOK = Relocalization();
         }
         else
@@ -533,8 +532,8 @@ namespace ORB_SLAM2
           // mbVO为true表明此帧匹配了很少的MapPoints，少于10个，要跪的节奏
           if (!mbVO)
           {
-            // Step 2.2 如果跟踪正常，使用恒速模型 或 参考关键帧跟踪
-            // In last frame we tracked enough MapPoints in the map
+            // Step 2.2.1 如果跟踪正常，使用恒速模型 或 参考关键帧跟踪
+            // ?In last frame we tracked enough MapPoints in the map
             if (!mVelocity.empty())
             {
               bOK = TrackWithMotionModel();
@@ -550,14 +549,15 @@ namespace ORB_SLAM2
           }
           else
           {
+            // Step 2.2.2 跟踪不正常，mbVO为true，既做跟踪又做重定位
+            //        表明此帧匹配了很少（小于10）的地图点，要跪的节奏，
             // In last frame we tracked mainly "visual odometry" points.
-            // We compute two camera poses, one from motion model and one doing
-            // relocalization. If relocalization is sucessfull we choose that
-            // solution, otherwise we retain the "visual odometry" solution.
+            // We compute two camera poses, one from motion model and one doing relocalization.
+            // If relocalization is successful we choose that solution,
+            // otherwise we retain the "visual odometry" solution.
 
-            // mbVO为true，表明此帧匹配了很少（小于10）的地图点，要跪的节奏，既做跟踪又做重定位
-
-            // MM=Motion Model,通过运动模型进行跟踪的结果
+            // MM=Motion Model
+            //通过运动模型进行跟踪的结果
             bool bOKMM = false;
             //通过重定位方法来跟踪的结果
             bool bOKReloc = false;
@@ -591,17 +591,19 @@ namespace ORB_SLAM2
               mCurrentFrame.mvpMapPoints = vpMPsMM;
               mCurrentFrame.mvbOutlier = vbOutMM;
 
-              //? 疑似bug！这段代码是不是重复增加了观测次数？后面 TrackLocalMap
+              //? 疑似bug！这段代码是不是重复增加了观测次数？后面 TrackLocalMap ????
               //函数中会有这些操作
               // 如果当前帧匹配的3D点很少，增加当前可视地图点的被观测次数
+
               if (mbVO)
+              // ?是这个意思吗？ 经过恒速跟踪模型+重定位，跟踪还是不正常，也就是mbVO还是true
+              // ? 为什么都还是不正常还要增加地图的观测次数？
               {
                 // 更新当前帧的地图点被观测次数
-                for (int i = 0; i < mCurrentFrame.N; i++)
+                for (int i = 0; i < mCurrentFrame.N; i++) // 遍历当前帧的keypoint
                 {
                   //如果这个特征点形成了地图点,并且也不是外点的时候
-                  if (mCurrentFrame.mvpMapPoints[i] &&
-                      !mCurrentFrame.mvbOutlier[i])
+                  if (mCurrentFrame.mvpMapPoints[i] && !mCurrentFrame.mvbOutlier[i])
                   {
                     //增加能观测到该地图点的帧数
                     mCurrentFrame.mvpMapPoints[i]->IncreaseFound();
@@ -623,21 +625,22 @@ namespace ORB_SLAM2
       // 将最新的关键帧作为当前帧的参考关键帧
       mCurrentFrame.mpReferenceKF = mpReferenceKF;
 
-      // If we have an initial estimation of the camera pose and matching. Track
-      // the local map. Step 3：在跟踪得到当前帧初始姿态后，现在对local
-      // map进行跟踪得到更多的匹配，并优化当前位姿
+      // If we have an initial estimation of the camera pose and matching. Track the local map.
+      // Step 3：在跟踪得到当前帧初始姿态后，现在对local map进行跟踪得到更多的匹配，并优化当前位姿
+      // 竹曼理解：前面是粗略的定位，这里是精匹配
       // 前面只是跟踪一帧得到初始位姿，这里搜索局部关键帧、局部地图点，和当前帧进行投影匹配，得到更多匹配的MapPoints后进行Pose优化
       if (!mbOnlyTracking)
+      // 正常SLAM模式，有地图更新
       {
-        if (bOK)
+        if (bOK) // 恒速模型 or 重定位 其中有一个成功
           bOK = TrackLocalMap();
       }
       else
+      // 追踪模式
       {
-        // mbVO true means that there are few matches to MapPoints in the map. We
-        // cannot retrieve a local map and therefore we do not perform
-        // TrackLocalMap(). Once the system relocalizes the camera we will use the
-        // local map again.
+        // mbVO true means that there are few matches to MapPoints in the map.
+        // We cannot retrieve(取回) a local map and therefore we do not perform TrackLocalMap().
+        // Once the system relocalizes the camera we will use the local map again.
 
         // 重定位成功
         if (bOK && !mbVO)
@@ -660,30 +663,36 @@ namespace ORB_SLAM2
         // Update motion model
         // Step 5：跟踪成功，更新恒速运动模型
         if (!mLastFrame.mTcw.empty())
+        // 上一帧已经存在定位，恒速模型才有意义
         {
           // 更新恒速运动模型 TrackWithMotionModel 中的mVelocity
-          cv::Mat LastTwc = cv::Mat::eye(4, 4, CV_32F);
-          mLastFrame.GetRotationInverse().copyTo(
-              LastTwc.rowRange(0, 3).colRange(0, 3));
-          mLastFrame.GetCameraCenter().copyTo(LastTwc.rowRange(0, 3).col(3));
-          // mVelocity = Tcl = Tcw * Twl,表示上一帧到当前帧的变换， 其中 Twl =
-          // LastTwc
+          cv::Mat LastTwc = cv::Mat::eye(4, 4, CV_32F);                                  // (上一帧 wrt world)^-1 的SE(3)
+          mLastFrame.GetRotationInverse().copyTo(LastTwc.rowRange(0, 3).colRange(0, 3)); // R
+          mLastFrame.GetCameraCenter().copyTo(LastTwc.rowRange(0, 3).col(3));            // T
+          // mVelocity = Tcl = Tcw * Twl,表示上一帧到当前帧的变换，
+          // 其中 Twl = LastTwc
+          // (当前帧 wrt 上一帧) = (当前帧 wrt world) * (world wrt 上一帧)
+          // 这个结果在匀速模型里面用来作为下一帧的初值
           mVelocity = mCurrentFrame.mTcw * LastTwc;
         }
         else
+        // 上一帧不存在位姿信息，无法套用恒速模型
+        {
           //否则速度为空
           mVelocity = cv::Mat();
+        }
 
         //更新显示中的位姿
         mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
 
         // Clean VO matches
         // Step 6：清除观测不到的地图点
-        for (int i = 0; i < mCurrentFrame.N; i++)
+        for (int i = 0; i < mCurrentFrame.N; i++) // 遍历当前帧的特征点
         {
           MapPoint *pMP = mCurrentFrame.mvpMapPoints[i];
+          // 遍历到的特征点有对应的地图点
           if (pMP)
-            if (pMP->Observations() < 1)
+            if (pMP->Observations() < 1) // 当前地图点的被观测次数 < 1
             {
               mCurrentFrame.mvbOutlier[i] = false;
               mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint *>(NULL);
@@ -691,22 +700,22 @@ namespace ORB_SLAM2
         }
 
         // Delete temporal MapPoints
-        // Step 7：清除恒速模型跟踪中
-        // UpdateLastFrame中为当前帧临时添加的MapPoints（仅双目和rgbd）
-        // 步骤6中只是在当前帧中将这些MapPoints剔除，这里从MapPoints数据库中删除
+        // Step 7：清除恒速模型跟踪中 UpdateLastFrame中为当前帧临时添加的MapPoints（仅双目和rgbd）
+        // 注意：步骤6中只是在当前帧中将这些MapPoints剔除
+        // 现在要！从MapPoints的数据库中删除
         // 临时地图点仅仅是为了提高双目或rgbd摄像头的帧间跟踪效果，用完以后就扔了，没有添加到地图中
-        for (list<MapPoint *>::iterator lit = mlpTemporalPoints.begin(),
-                                        lend = mlpTemporalPoints.end();
+        for (list<MapPoint *>::iterator
+                 lit = mlpTemporalPoints.begin(),
+                 lend = mlpTemporalPoints.end();
              lit != lend; lit++)
         {
           MapPoint *pMP = *lit;
-          delete pMP;
+          delete pMP; // 释放
         }
 
-        // 这里不仅仅是清除mlpTemporalPoints，通过delete
-        // pMP还删除了指针指向的MapPoint
-        // 不能够直接执行这个是因为其中存储的都是指针,之前的操作都是为了避免内存泄露
-        mlpTemporalPoints.clear();
+        // 这里不仅仅是清除mlpTemporalPoints，通过delete pMP还删除了指针指向的MapPoint
+        // 不能够直接执行这个是因为其中存储的都是指针（要释放容器里面的地址）,上一步的操作是为了避免内存泄露
+        mlpTemporalPoints.clear(); // clear the whole list
 
         // Check if we need to insert a new keyframe
         // Step 8：检测并插入关键帧，对于双目或RGB-D会产生新的地图点
@@ -714,26 +723,23 @@ namespace ORB_SLAM2
         if (NeedNewKeyFrame())
           CreateNewKeyFrame();
 
-        // We allow points with high innovation (considererd outliers by the Huber
+        // We allow points with high innovation (considered outliers by the Huber
         // Function) pass to the new keyframe, so that bundle adjustment will
         // finally decide if they are outliers or not. We don't want next frame to
-        // estimate its position with those points so we discard them in the
-        // frame.
-        // 作者这里说允许在BA中被Huber核函数判断为外点的传入新的关键帧中，让后续的BA来审判他们是不是真正的外点
+        // estimate its position with those points so we discard them in the frame.
+        // 作者说 允许在BA中被Huber核判断为外点的传入新的关键帧中，让后续的BA来审判他们是不是真正的外点
         // 但是估计下一帧位姿的时候我们不想用这些外点，所以删掉
-
         //  Step 9 删除那些在bundle adjustment中检测为outlier的地图点
-        for (int i = 0; i < mCurrentFrame.N; i++)
+        for (int i = 0; i < mCurrentFrame.N; i++) // 遍历特征点
         {
-          // 这里第一个条件还要执行判断是因为, 前面的操作中可能删除了其中的地图点
-          if (mCurrentFrame.mvpMapPoints[i] && mCurrentFrame.mvbOutlier[i])
+          // 这里第一个条件还要执行判断 因为前面的操作中可能删除了其中的地图点
+          if (mCurrentFrame.mvpMapPoints[i] && mCurrentFrame.mvbOutlier[i]) // 非空 且 为外点
             mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint *>(NULL);
         }
       }
 
       // Reset if the camera get lost soon after initialization
-      // Step 10
-      // 如果初始化后不久就跟踪失败，并且relocation也没有搞定，只能重新Reset
+      // Step 10 如果初始化后不久就跟踪失败，并且relocation也没有搞定，只能重新Reset
       if (mState == LOST)
       {
         //如果地图中的关键帧信息过少的话,直接重新进行初始化了
@@ -746,18 +752,21 @@ namespace ORB_SLAM2
       }
 
       //确保已经设置了参考关键帧
-      if (!mCurrentFrame.mpReferenceKF)
-        mCurrentFrame.mpReferenceKF = mpReferenceKF;
+      if (!mCurrentFrame.mpReferenceKF)              // 如果没有
+        mCurrentFrame.mpReferenceKF = mpReferenceKF; // 设置
 
       // 保存上一帧的数据,当前帧变上一帧
       mLastFrame = Frame(mCurrentFrame);
     }
 
-    // Store frame pose information to retrieve the complete camera trajectory
-    // afterwards. Step 11：记录位姿信息，用于最后保存所有的轨迹
+    // Store frame pose information to retrieve the complete camera trajectory afterwards.
+    // Step 11：记录位姿信息，用于最后保存所有的轨迹
     if (!mCurrentFrame.mTcw.empty())
+    // 当前帧有位姿信息
     {
-      // 计算相对姿态Tcr = Tcw * Twr, Twr = Trw^-1
+      // 计算相对姿态 Tcr = Tcw * Twr, Twr = Trw^-1
+      // (当前帧 wrt 相对帧) = (当前帧 wrt world) * (world wrt 相对帧)，
+      //        相对帧就是当前帧用来参考的关键帧
       cv::Mat Tcr =
           mCurrentFrame.mTcw * mCurrentFrame.mpReferenceKF->GetPoseInverse();
       //保存各种状态
@@ -767,6 +776,7 @@ namespace ORB_SLAM2
       mlbLost.push_back(mState == LOST);
     }
     else
+    // 当前帧没有位姿信息
     {
       // This can happen if tracking is lost
       // 如果跟踪失败，则相对位姿使用上一次值
@@ -776,7 +786,7 @@ namespace ORB_SLAM2
       mlbLost.push_back(mState == LOST);
     }
 
-  } // Tracking
+  } // end Tracking
 
   /*
    * @brief 双目和rgbd的地图初始化，比单目简单很多
