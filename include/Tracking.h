@@ -422,7 +422,7 @@ namespace ORB_SLAM2
 
         // Threshold close/far points
         // Points seen as close by the stereo/RGBD sensor are considered reliable
-        // and inserted from just one frame. Far points requiere a match in two keyframes.
+        // and inserted from just one frame. Far points require a match in two keyframes.
         ///用于区分远点和近点的阈值. 近点认为可信度比较高; 远点则要求在两个关键帧中得到匹配
         float mThDepth;
 

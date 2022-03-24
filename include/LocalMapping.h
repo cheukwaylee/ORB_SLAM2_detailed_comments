@@ -108,10 +108,8 @@ namespace ORB_SLAM2
         void SetAcceptKeyFrames(bool flag);
         /** @brief 设置 mbnotStop标志的状态 */
         bool SetNotStop(bool flag);
-
         /** @brief 外部线程调用,终止BA */
         void InterruptBA();
-
         /** @brief 请求终止当前线程 */
         void RequestFinish();
         /** @brief 当前线程的run函数是否已经终止 */

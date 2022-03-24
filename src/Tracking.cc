@@ -1742,32 +1742,39 @@ namespace ORB_SLAM2
 
   /**
    * @brief 创建新的关键帧
-   * 对于非单目的情况，同时创建新的MapPoints
+   * 对于非单目的情况，同时创建新的MapPoints（双目关键帧的特征点三角化出地图点用于建图）
    *
    * Step 1：将当前帧构造成关键帧
    * Step 2：将当前关键帧设置为当前帧的参考关键帧
    * Step 3：对于双目或rgbd摄像头，为当前帧生成新的MapPoints
-   * 
+   *
    */
   void Tracking::CreateNewKeyFrame()
   {
-    // 如果局部建图线程关闭了,就无法插入关键帧
+    // 如果局部建图线程关闭了,就无法插入关键帧 （local mapping线程用作接收关键帧）
     if (!mpLocalMapper->SetNotStop(true))
+    {
+      // mpLocalMapper的成员变量mbStopped == true
       return;
+    }
 
-    // Step 1：将当前帧构造成关键帧
+    // Step 1：将当前帧构造成关键帧（把当前帧升级为关键帧）
     KeyFrame *pKF = new KeyFrame(mCurrentFrame, mpMap, mpKeyFrameDB);
 
-    // Step 2：将当前关键帧设置为当前帧的参考关键帧
-    // 在UpdateLocalKeyFrames函数中会将与当前关键帧共视程度最高的关键帧设定为当前帧的参考关键帧
-    mpReferenceKF = pKF;
-    mCurrentFrame.mpReferenceKF = pKF;
+    // Step 2：将当前关键帧 设置为 当前帧的参考关键帧
+    // 在UpdateLocalKeyFrames函数中会将与当前关键帧共视程度最高的关键帧 设定为当前帧的参考关键帧
+    mpReferenceKF = pKF;               // 对于tracking线程而言
+    mCurrentFrame.mpReferenceKF = pKF; //? 对于tracking处理到的当前帧这个对象而言（处理完还会被保存）
 
     // 这段代码和 Tracking::UpdateLastFrame 中的那一部分代码功能相同
     // Step 3：对于双目或rgbd摄像头，为当前帧生成新的地图点；单目无操作
     if (mSensor != System::MONOCULAR)
     {
       // 根据Tcw计算mRcw、mtcw和mRwc、mOw
+      // (当前帧 wrt world)的SE3 得到 (当前帧 wrt world)的旋转矩阵 mRcw
+      //                            平移向量 mtcw
+      // (world wrt 当前帧)的旋转矩阵mRwc 也就是mRcw的逆
+      // mOw同理
       mCurrentFrame.UpdatePoseMatrices();
 
       // We sort points by the measured depth by the stereo/RGBD sensor.
@@ -1788,40 +1795,45 @@ namespace ORB_SLAM2
 
       if (!vDepthIdx.empty())
       {
-        // Step 3.2：按照深度从小到大排序
+        // Step 3.2：按照深度从小到大排序（近到远）
         sort(vDepthIdx.begin(), vDepthIdx.end());
 
-        // Step 3.3：从中找出不是地图点的生成临时地图点
-        // 处理的近点的个数
-        int nPoints = 0;
-        for (size_t j = 0; j < vDepthIdx.size(); j++)
+        // Step 3.3：从中找出不是地图点的有深度的特征点 然后生成临时地图点
+        int nPoints = 0;                              // 处理的近点的个数
+        for (size_t j = 0; j < vDepthIdx.size(); j++) // 遍历符合有效深度的特征点
         {
-          int i = vDepthIdx[j].second;
+          int i = vDepthIdx[j].second; // 特征点的id
 
           bool bCreateNew = false;
 
-          // 如果这个点对应在上一帧中的地图点没有,或者创建后就没有被观测到,那么就生成一个临时的地图点
+          // 如果这个点对应在当前帧中的地图点没有, 或者创建后就没有被观测到,
+          // 那么就生成一个临时的地图点
           MapPoint *pMP = mCurrentFrame.mvpMapPoints[i];
           if (!pMP)
             bCreateNew = true;
           else if (pMP->Observations() < 1)
           {
             bCreateNew = true;
+            // 当前帧的地图点在创建后就没有被观测到 //? 要删掉这个地图点 竹曼理解 删掉重建
             mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint *>(NULL);
           }
 
-          // 如果需要就新建地图点，这里的地图点不是临时的，是全局地图中新建地图点，用于跟踪
+          // 如果需要就新建地图点，这里的地图点不是临时的，
+          // 这是全局地图中新建地图点，用于跟踪（因为现在是关键帧：用于建图+定位）
           if (bCreateNew)
           {
-            cv::Mat x3D = mCurrentFrame.UnprojectStereo(i);
+            cv::Mat x3D = mCurrentFrame.UnprojectStereo(i); // 得到特征点的反投影点的世界坐标
+
             MapPoint *pNewMP = new MapPoint(x3D, pKF, mpMap);
             // 这些添加属性的操作是每次创建MapPoint后都要做的
-            pNewMP->AddObservation(pKF, i);
-            pKF->AddMapPoint(pNewMP, i);
-            pNewMP->ComputeDistinctiveDescriptors();
-            pNewMP->UpdateNormalAndDepth();
+            //? 下面的i都是：MapPoint在KeyFrame中的索引，也就是特征点id
+            pNewMP->AddObservation(pKF, i);          // 地图点被关键帧观测到
+            pKF->AddMapPoint(pNewMP, i);             // 关键帧看到了地图点
+            pNewMP->ComputeDistinctiveDescriptors(); // 计算具有代表的描述子：这个地图点对应的关键帧的描述子应为最具代表性
+            pNewMP->UpdateNormalAndDepth();          // 更新平均观测方向以及观测距离范围 //?（感觉和上一个类似）
             mpMap->AddMapPoint(pNewMP);
 
+            // 配置完的新地图点 加入到 当前帧的某个特征点对应的地图点
             mCurrentFrame.mvpMapPoints[i] = pNewMP;
             nPoints++;
           }
@@ -1841,8 +1853,8 @@ namespace ORB_SLAM2
     }
 
     // Step 4：插入关键帧
-    // 关键帧插入到列表 mlNewKeyFrames中，并传给LocalMapping线程
-    // 等待local mapping线程临幸
+    // 关键帧插入到列表 mlNewKeyFrames中，并传给LocalMapping线程，发出中断BA信号
+    // 等待local mapping线程临幸 //? 竹曼理解 local mapping会查询 mlNewKeyFrames容器里面有没有新东西
     mpLocalMapper->InsertKeyFrame(pKF);
 
     // 插入好了，允许局部建图停止
@@ -1855,26 +1867,30 @@ namespace ORB_SLAM2
 
   /**
    * @brief 用局部地图点进行投影匹配，得到更多的匹配关系
-   * 注意：局部地图点中已经是当前帧地图点的不需要再投影，只需要将此外的并且在视野范围内的点和当前帧进行投影匹配
+   *
+   * 注意：局部地图点中已经是当前帧地图点的不需要再投影，
+   *    只需要将此外的并且在视野范围内的点和当前帧进行投影匹配（投影到当前帧）
    */
   void Tracking::SearchLocalPoints()
   {
     // Do not search map points already matched
-    // Step 1：遍历当前帧的地图点，标记这些地图点不参与之后的投影搜索匹配
-    for (vector<MapPoint *>::iterator vit = mCurrentFrame.mvpMapPoints.begin(),
-                                      vend = mCurrentFrame.mvpMapPoints.end();
+    // Step 1：遍历当前帧的地图点，标记这些地图点不参与之后的投影搜索匹配（自己投影到自己没有意义）
+    for (vector<MapPoint *>::iterator
+             vit = mCurrentFrame.mvpMapPoints.begin(),
+             vend = mCurrentFrame.mvpMapPoints.end();
          vit != vend; vit++)
     {
-      MapPoint *pMP = *vit;
+      MapPoint *pMP = *vit; // 当前帧持有的地图点
       if (pMP)
       {
         if (pMP->isBad())
         {
+          // 删除坏点
           *vit = static_cast<MapPoint *>(NULL);
         }
         else
         {
-          // 更新能观测到该点的帧数加1(被当前帧观测了)
+          // 更新能观测到该点的帧数加1(这个地图点被当前帧观测了，因为当前帧持有了这个地图点)
           pMP->IncreaseVisible();
           // 标记该点被当前帧观测到
           pMP->mnLastFrameSeen = mCurrentFrame.mnId;
@@ -1889,8 +1905,9 @@ namespace ORB_SLAM2
 
     // Project points in frame and check its visibility
     // Step 2：判断所有局部地图点中除当前帧地图点外的点，是否在当前帧视野范围内
-    for (vector<MapPoint *>::iterator vit = mvpLocalMapPoints.begin(),
-                                      vend = mvpLocalMapPoints.end();
+    for (vector<MapPoint *>::iterator
+             vit = mvpLocalMapPoints.begin(),
+             vend = mvpLocalMapPoints.end();
          vit != vend; vit++)
     {
       MapPoint *pMP = *vit;
@@ -1898,11 +1915,12 @@ namespace ORB_SLAM2
       // 已经被当前帧观测到的地图点肯定在视野范围内，跳过
       if (pMP->mnLastFrameSeen == mCurrentFrame.mnId)
         continue;
+
       // 跳过坏点
       if (pMP->isBad())
         continue;
 
-      // Project (this fills MapPoint variables for matching)
+      //? Project (this fills MapPoint variables for matching)
       // 判断地图点是否在在当前帧视野内
       if (mCurrentFrame.isInFrustum(pMP, 0.5))
       {
@@ -1913,14 +1931,15 @@ namespace ORB_SLAM2
       }
     }
 
-    // Step
-    // 3：如果需要进行投影匹配的点的数目大于0，就进行投影匹配，增加更多的匹配关系
+    // Step 3：如果需要进行投影匹配的点的数目大于0，就进行投影匹配，增加更多的匹配关系
     if (nToMatch > 0)
     {
       ORBmatcher matcher(0.8);
+
+      //? 越大越宽松？
       int th = 1;
-      if (mSensor ==
-          System::RGBD) // RGBD相机输入的时候,搜索的阈值会变得稍微大一些
+
+      if (mSensor == System::RGBD) // RGBD相机输入的时候,搜索的阈值会变得稍微大一些
         th = 3;
 
       // If the camera has been relocalised recently, perform a coarser search
@@ -1929,6 +1948,7 @@ namespace ORB_SLAM2
         th = 5;
 
       // 投影匹配得到更多的匹配关系
+      // 通过投影地图点到当前帧，对Local MapPoint进行跟踪
       matcher.SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th);
     }
   }

@@ -116,7 +116,7 @@ namespace ORB_SLAM2
         // Used in loop detection (Loop Closing)
         /**
          * @brief 根据Sim3变换，将每个vpPoints投影到pKF上，并根据尺度确定一个搜索区域，
-         * @detials 根据该MapPoint的描述子与该区域内的特征点进行匹配，如果匹配误差小于TH_LOW即匹配成功，更新vpMatched
+         * @details 根据该MapPoint的描述子与该区域内的特征点进行匹配，如果匹配误差小于TH_LOW即匹配成功，更新vpMatched
          * @param[in] pKF               要投影到的关键帧
          * @param[in] Scw               相似变换
          * @param[in] vpPoints          空间点

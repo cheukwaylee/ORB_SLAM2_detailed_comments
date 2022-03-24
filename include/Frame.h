@@ -401,7 +401,7 @@ namespace ORB_SLAM2
         /** @} */
 
         // Camera pose.
-        cv::Mat mTcw; ///< 相机姿态 世界坐标系到相机坐标坐标系的变换矩阵,是我们常规理解中的相机位姿
+        cv::Mat mTcw; ///< SE3 相机姿态 世界坐标系到相机坐标坐标系的变换矩阵,是我们常规理解中的相机位姿
 
         // Current and Next Frame id.
         // 类的静态成员变量，这些变量则是在整个系统开始执行的时候被初始化的——它在全局区被初始化
@@ -480,8 +480,8 @@ namespace ORB_SLAM2
         // Rotation, translation and camera center
         cv::Mat mRcw; ///< Rotation from world to camera
         cv::Mat mtcw; ///< Translation from world to camera
-        cv::Mat mRwc; ///< Rotation from camera to world
-        cv::Mat mOw;  ///< mtwc,Translation from camera to world
+        cv::Mat mRwc; ///< Rotation from camera to world (inverse of above)
+        cv::Mat mOw;  ///< mtwc, Translation from camera to world (inverse of above)
 
         /** @} */
     };

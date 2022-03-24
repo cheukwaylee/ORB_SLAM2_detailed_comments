@@ -105,12 +105,11 @@ namespace ORB_SLAM2
 
         // 获取当前地图点的被观测次数
         int Observations();
-
         /**
          * @brief 添加观测
          *
-         * 记录哪些KeyFrame的那个特征点能观测到该MapPoint \n
-         * 并增加观测的相机数目nObs，单目+1，双目或者grbd+2
+         * 记录哪些KeyFrame的哪个特征点能观测到该MapPoint
+         * 并增加观测的相机数目nObs，单目+1，双目或者RGBD+2
          * 这个函数是建立关键帧共视关系的核心函数，能共同观测到某些MapPoints的关键帧是共视关键帧
          * @param[in] pKF KeyFrame,观测到当前地图点的关键帧
          * @param[in] idx MapPoint在KeyFrame中的索引
@@ -122,7 +121,6 @@ namespace ORB_SLAM2
          * @param[in] pKF
          */
         void EraseObservation(KeyFrame *pKF);
-
         /**
          * @brief 获取观测到当前地图点的关键帧,在观测数据中的索引
          *
