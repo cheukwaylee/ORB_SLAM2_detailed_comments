@@ -344,7 +344,7 @@ namespace ORB_SLAM2
         ///原始右图像提取出的特征点（未校正）
         std::vector<cv::KeyPoint> mvKeysRight;
         ///校正mvKeys后的特征点
-        std::vector<cv::KeyPoint> mvKeysUn; // 左目 （双目不需要校正，单目and RGBD没有右目）
+        std::vector<cv::KeyPoint> mvKeysUn; // 左目 （双目不需要校正，单目 and RGBD没有右目）
 
         ///@note 之所以对于双目摄像头只保存左图像矫正后的特征点,是因为对于双目摄像头,一般得到的图像都是矫正好的,这里再矫正一次有些多余.\n
         ///校正操作是在帧的构造函数中进行的。
@@ -358,7 +358,8 @@ namespace ORB_SLAM2
         ///@note 对于单目摄像头，这两个容器中存的都是-1
         ///对于双目相机,存储左目像素点在右目中的对应点的横坐标 （因为纵坐标是一样的）
 
-        std::vector<float> mvuRight; // m-member v-vector u-指代横坐标,因为最后这个坐标是通过各种拟合方法逼近出来的，所以使用float存储
+        // m-member v-vector u-指代横坐标,因为最后这个坐标是通过各种拟合方法逼近出来的，所以使用float存储
+        std::vector<float> mvuRight;
         ///对应的深度
         std::vector<float> mvDepth;
 

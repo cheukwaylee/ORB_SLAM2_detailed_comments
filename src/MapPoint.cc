@@ -72,17 +72,20 @@ namespace ORB_SLAM2
         mnId = nNextId++;
     }
 
-    /*
+    /**
      * @brief 给定坐标与frame构造MapPoint
      *
      * 双目：UpdateLastFrame()
      * @param Pos    MapPoint的坐标（世界坐标系）
      * @param pMap   Map
-     * @param pFrame Frame
+     * @param pFrame  Frame
      * @param idxF   MapPoint在Frame中的索引，即对应的特征点的编号
      */
-    MapPoint::MapPoint(const cv::Mat &Pos, Map *pMap, Frame *pFrame,
-                       const int &idxF)
+    MapPoint::MapPoint(
+        const cv::Mat &Pos,
+        Map *pMap,
+        Frame *pFrame,
+        const int &idxF)
         : mnFirstKFid(-1),
           mnFirstFrame(pFrame->mnId),
           nObs(0),

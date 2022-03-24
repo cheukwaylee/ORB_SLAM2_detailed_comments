@@ -209,7 +209,8 @@ namespace ORB_SLAM2
 
         // Lists used to recover the full camera trajectory at the end of the execution.
         // Basically we store the reference keyframe for each frame and its relative transformation
-        ///所有的参考关键帧的位姿;看上面注释的意思,这里存储的也是相对位姿
+        //?所有的参考关键帧的位姿;看上面注释的意思,这里存储的也是相对位姿
+        //? 竹曼觉得 每一帧 wrt 它对应的参考关键帧 的位姿
         list<cv::Mat> mlRelativeFramePoses;
         ///参考关键帧
         list<KeyFrame *> mlpReferences;
@@ -378,7 +379,7 @@ namespace ORB_SLAM2
         ///当前系统运行的时候,关键帧所产生的数据库
         KeyFrameDatabase *mpKeyFrameDB;
 
-        // Initalization (only for monocular)
+        // Initialization (only for monocular)
         /// 单目初始器
         Initializer *mpInitializer;
 
@@ -433,9 +434,10 @@ namespace ORB_SLAM2
         ///当前帧中的进行匹配的内点,将会被不同的函数反复使用
         int mnMatchesInliers;
 
-        // Last Frame, KeyFrame and Relocalisation Info
+        // Last Frame, KeyFrame and Relocalization Info
         //  上一关键帧
         KeyFrame *mpLastKeyFrame;
+        //? 为什么要用不同的持有方式？一个是指针，一个直接持有对象
         // 上一帧
         Frame mLastFrame;
         // 上一个关键帧的ID
@@ -444,7 +446,8 @@ namespace ORB_SLAM2
         unsigned int mnLastRelocFrameId;
 
         // uniform Motion Model
-        cv::Mat mVelocity;
+        // 在上一循环中：(当前帧 wrt 上一帧) == （下一帧 wrt 当前帧）作为下一次循环的初值
+        cv::Mat mVelocity; 
 
         // Color order (true RGB, false BGR, ignored if grayscale)
         /// RGB图像的颜色通道顺序

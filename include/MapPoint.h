@@ -158,6 +158,7 @@ namespace ORB_SLAM2
          * @param[in] pMP 地图点
          */
         void Replace(MapPoint *pMP);
+
         /**
          * @brief 获取取代当前地图点的点? //?
          *
@@ -175,6 +176,7 @@ namespace ORB_SLAM2
          * @param[in] n 要增加的次数
          */
         void IncreaseVisible(int n = 1);
+
         /**
          * @brief Increase Found
          * @detials 能找到该点的帧数+n，n默认为1
@@ -182,8 +184,10 @@ namespace ORB_SLAM2
          * @see Tracking::TrackLocalMap()
          */
         void IncreaseFound(int n = 1);
+
         //? 这个比例是?
         float GetFoundRatio();
+
         /**
          * @brief 获取被找到的次数
          *
@@ -193,7 +197,7 @@ namespace ORB_SLAM2
 
         /**
          * @brief 计算具有代表的描述子
-         * @detials
+         * @details
          * 由于一个MapPoint会被许多相机观测到，因此在插入关键帧后，需要判断是否更新当前点的最适合的描述子
          * \n
          * 先获得当前点的所有描述子，然后计算描述子之间的两两距离，最好的描述子与其他描述子应该具有最小的距离中值

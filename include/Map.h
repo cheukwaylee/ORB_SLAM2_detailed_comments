@@ -94,12 +94,14 @@ namespace ORB_SLAM2
          * @return std::vector<KeyFrame*> 获得的关键帧序列
          */
         std::vector<KeyFrame *> GetAllKeyFrames();
+
         /**
          * @brief 获取地图中的所有地图点
          *
          * @return std::vector<MapPoint*> 获得的地图点序列
          */
         std::vector<MapPoint *> GetAllMapPoints();
+
         /**
          * @brief 获取地图中的所有参考地图点
          *
@@ -132,6 +134,7 @@ namespace ORB_SLAM2
         void clear();
 
         // 保存了最初始的关键帧
+        //? 只有初始化的最开始的一个吗？
         vector<KeyFrame *> mvpKeyFrameOrigins;
 
         ///当更新地图时的互斥量.回环检测中和局部BA后更新全局地图的时候会用到这个

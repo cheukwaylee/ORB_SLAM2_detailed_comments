@@ -48,8 +48,8 @@ namespace ORB_SLAM2
     public:
         /**
          * Constructor
-         * @param nnratio  ratio of the best and the second score   最优和次优评分的比例
-         * @param checkOri check orientation                        是否检查方向
+         * @param nnratio  ratio of the best and the second score  最优和次优评分的比例
+         * @param checkOri  check orientation               是否检查方向
          */
         ORBmatcher(float nnratio = 0.6, bool checkOri = true);
 
@@ -129,7 +129,7 @@ namespace ORB_SLAM2
         // Search matches between MapPoints in a KeyFrame and ORB in a Frame.
         // Brute force constrained to ORB that belong to the same vocabulary node (at a certain level)
         // Used in Relocalisation and Loop Detection
-        /*
+        /**
          * @brief 通过词袋，对关键帧的特征点进行跟踪
          * 步骤
          * Step 1：分别取出属于同一node的ORB特征点(只有属于同一node，才有可能是匹配点)
@@ -137,10 +137,10 @@ namespace ORB_SLAM2
          * Step 3：遍历F中属于该node的特征点，寻找最佳匹配点
          * Step 4：根据阈值 和 角度投票剔除误匹配
          * Step 5：根据方向剔除误匹配的点
-         * @param  pKF               KeyFrame
-         * @param  F                 Current Frame
-         * @param  vpMapPointMatches F中MapPoints对应的匹配，NULL表示未匹配
-         * @return                   成功匹配的数量
+         * @param  pKF           KeyFrame
+         * @param  F            Current Frame
+         * @param  vpMapPointMatches    F中MapPoints对应的匹配，NULL表示未匹配
+         * @return              成功匹配的数量
          */
         int SearchByBoW(KeyFrame *pKF, Frame &F, std::vector<MapPoint *> &vpMapPointMatches);
         int SearchByBoW(KeyFrame *pKF1, KeyFrame *pKF2, std::vector<MapPoint *> &vpMatches12);
