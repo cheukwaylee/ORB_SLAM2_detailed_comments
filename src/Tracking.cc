@@ -1957,8 +1957,9 @@ namespace ORB_SLAM2
    * @brief 更新LocalMap
    *
    * 局部地图包括：
-   * 1、K1个关键帧、K2个临近关键帧和参考关键帧
+   * 1、K1个关键帧、K2个临近关键帧和参考关键帧 //?
    * 2、由这些关键帧观测到的MapPoints
+   *
    */
   void Tracking::UpdateLocalMap()
   {
@@ -1972,38 +1973,51 @@ namespace ORB_SLAM2
     UpdateLocalPoints();
   }
 
-  /*
-   * @brief
-   * 更新局部关键点。先把局部地图清空，然后将局部关键帧的有效地图点添加到局部地图中
+  /**
+   * @brief 更新局部关键点。
+   *
+   * 先把局部地图清空，
+   * 然后将局部关键帧的有效地图点添加到局部地图中
+   *
    */
   void Tracking::UpdateLocalPoints()
   {
     // Step 1：清空局部地图点
-    mvpLocalMapPoints.clear();
+    mvpLocalMapPoints.clear(); // 清空vector
 
     // Step 2：遍历局部关键帧 mvpLocalKeyFrames
-    for (vector<KeyFrame *>::const_iterator itKF = mvpLocalKeyFrames.begin(),
-                                            itEndKF = mvpLocalKeyFrames.end();
+    for (vector<KeyFrame *>::const_iterator // const迭代器 不能修改里面的值
+             itKF = mvpLocalKeyFrames.begin(),
+             itEndKF = mvpLocalKeyFrames.end();
          itKF != itEndKF; itKF++)
     {
       KeyFrame *pKF = *itKF;
+
+      // 获取该关键帧的MapPoints
       const vector<MapPoint *> vpMPs = pKF->GetMapPointMatches();
 
-      // step 2：将局部关键帧的地图点添加到mvpLocalMapPoints
-      for (vector<MapPoint *>::const_iterator itMP = vpMPs.begin(),
-                                              itEndMP = vpMPs.end();
+      // step 3：将局部关键帧的地图点添加到mvpLocalMapPoints
+      for (vector<MapPoint *>::const_iterator
+               itMP = vpMPs.begin(),
+               itEndMP = vpMPs.end();
            itMP != itEndMP; itMP++)
       {
         MapPoint *pMP = *itMP;
+
         if (!pMP)
           continue;
+
         // 用该地图点的成员变量mnTrackReferenceForFrame 记录当前帧的id
-        // 表示它已经是当前帧的局部地图点了，可以防止重复添加局部地图点
+        // 表示它已经是当前帧的局部地图点了（已经添加过），可以防止重复添加局部地图点
+        //? 局部关键帧有很多个 他们有可能同时观测到同一个地图点 所以会有重复 这样子吗？
         if (pMP->mnTrackReferenceForFrame == mCurrentFrame.mnId)
           continue;
-        if (!pMP->isBad())
+
+        if (!pMP->isBad()) // 不是坏点
         {
           mvpLocalMapPoints.push_back(pMP);
+
+          // 标记这个局部关键帧的地图点的id（防止重复）
           pMP->mnTrackReferenceForFrame = mCurrentFrame.mnId;
         }
       }
@@ -2011,69 +2025,94 @@ namespace ORB_SLAM2
   }
 
   /**
-   * @brief 跟踪局部地图函数里，更新局部关键帧
-   * 方法是遍历当前帧的地图点，将观测到这些地图点的关键帧和相邻的关键帧及其父子关键帧，作为mvpLocalKeyFrames
+   * @brief //? 跟踪局部地图函数里，更新局部关键帧
+   * @brief 更新局部关键帧
+   *
+   * @details
+   * 方法是遍历当前帧的地图点，
+   * 将观测到这些地图点的 关键帧 和 相邻的关键帧 及其父子关键帧，作为mvpLocalKeyFrames
+   *
    * Step 1：遍历当前帧的地图点，记录所有能观测到当前帧地图点的关键帧
    * Step 2：更新局部关键帧（mvpLocalKeyFrames），添加局部关键帧包括以下3种类型
    *      类型1：能观测到当前帧地图点的关键帧，也称一级共视关键帧
+   *      // 先产生一级 随后的都是base on一级
    *      类型2：一级共视关键帧的共视关键帧，称为二级共视关键帧
    *      类型3：一级共视关键帧的子关键帧、父关键帧
    * Step 3：更新当前帧的参考关键帧，与自己共视程度最高的关键帧作为参考关键帧
+   *
    */
   void Tracking::UpdateLocalKeyFrames()
   {
     // Each map point vote for the keyframes in which it has been observed
-    // Step 1：遍历当前帧的地图点，记录所有能观测到当前帧地图点的关键帧
-    map<KeyFrame *, int> keyframeCounter;
-    for (int i = 0; i < mCurrentFrame.N; i++)
+    // Step 1：遍历当前帧的地图点（出发点），记录所有能观测到当前帧地图点的关键帧（作为候选人）
+    map<KeyFrame *, int> keyframeCounter; // 对关键帧候选人投票，看看哪个关键帧持有更多的地图点 更关键
+
+    for (int i = 0; i < mCurrentFrame.N; i++) // 遍历当前帧的特征点（经三角化的特征点才有可能是地图点）
     {
-      if (mCurrentFrame.mvpMapPoints[i])
+      if (mCurrentFrame.mvpMapPoints[i]) // 这个特征点有生成地图点
       {
         MapPoint *pMP = mCurrentFrame.mvpMapPoints[i];
+
+        // 不是坏点
         if (!pMP->isBad())
         {
-          // 得到观测到该地图点的关键帧和该地图点在关键帧中的索引
+          // 观测到该地图点的 关键帧 和 该地图点在关键帧中的索引
+          //                （该地图点在该关键帧的特征点的访问id）
           const map<KeyFrame *, size_t> observations = pMP->GetObservations();
-          // 由于一个地图点可以被多个关键帧观测到,因此对于每一次观测,都对观测到这个地图点的关键帧进行累计投票
-          for (map<KeyFrame *, size_t>::const_iterator it = observations.begin(),
-                                                       itend = observations.end();
+
+          // 由于一个地图点可以被多个关键帧观测到,
+          // 因此对于每一次观测,都对观测到这个地图点的关键帧进行累计投票
+          // （对关键帧投票，看看哪个关键帧更关键）
+          for (map<KeyFrame *, size_t>::const_iterator
+                   it = observations.begin(),
+                   itend = observations.end();
                it != itend; it++)
-            // 这里的操作非常精彩！
-            // map[key] =
-            // value，当要插入的键存在时，会覆盖键对应的原来的值。如果键不存在，则添加一组键值对
-            // it->first
-            // 是地图点看到的关键帧，同一个关键帧看到的地图点会累加到该关键帧计数
-            // 所以最后keyframeCounter
-            // 第一个参数表示某个关键帧，第2个参数表示该关键帧看到了多少当前帧(mCurrentFrame)的地图点，也就是共视程度
-            keyframeCounter[it->first]++;
+            /*
+             * 这里的操作非常精彩！
+             *
+             * map[key] = value
+             * 当要插入的键存在时，会覆盖键对应的原来的值；如果键不存在，则添加一组键值对
+             *
+             * it->first是地图点看到的关键帧，
+             * 同一个关键帧持有的地图点会累加到该关键帧计数，所以最后keyframeCounter
+             *
+             * 第一个参数表示某个关键帧；
+             * 第二个参数表示该关键帧看到了多少当前帧(mCurrentFrame)的地图点，也就是共视程度
+             */
+            keyframeCounter[it->first]++; // 关键帧的共视次数（同一个关键帧被不同的地图点看到）
         }
+        // 是坏点
         else
         {
-          mCurrentFrame.mvpMapPoints[i] = NULL;
+          mCurrentFrame.mvpMapPoints[i] = NULL; // 删掉地图点
         }
       }
     }
 
     // 没有当前帧没有共视关键帧，返回
+    //? observations是空的才能满足吧？但是observations不可能是空的啊
+    //? 因为地图点必定是由关键帧产生的 除非都是坏点？
     if (keyframeCounter.empty())
       return;
 
-    // 存储具有最多观测次数（max）的关键帧
+    // 存储具有最多观测次数（max）的关键帧 //临时变量 选出最叻的帧
     int max = 0;
     KeyFrame *pKFmax = static_cast<KeyFrame *>(NULL);
 
     // Step 2：更新局部关键帧（mvpLocalKeyFrames），添加局部关键帧有3种类型
     // 先清空局部关键帧
     mvpLocalKeyFrames.clear();
-    // 先申请3倍内存，不够后面再加
+    // 先申请3倍内存，不够后面再加 // keyframeCounter 相当于关键帧候选人
     mvpLocalKeyFrames.reserve(3 * keyframeCounter.size());
 
-    // All keyframes that observe a map point are included in the local map. Also
-    // check which keyframe shares most points Step 2.1
-    // 类型1：能观测到当前帧地图点的关键帧作为局部关键帧
+    // All keyframes that observe a map point are included in the local map. （候选人名单）
+    // Also check which keyframe shares most points （查共视次数最多的）
+    // Step 2.1
+    // 类型1：能观测到当前帧地图点的关键帧（候选人名单）作为局部关键帧
     // （将邻居拉拢入伙）（一级共视关键帧）
-    for (map<KeyFrame *, int>::const_iterator it = keyframeCounter.begin(),
-                                              itEnd = keyframeCounter.end();
+    for (map<KeyFrame *, int>::const_iterator // 遍历候选人
+             it = keyframeCounter.begin(),    // map<KeyFrame *, int> keyframeCounter;
+         itEnd = keyframeCounter.end();       // 候选关键帧，候选关键帧持有的地图点数目
          it != itEnd; it++)
     {
       KeyFrame *pKF = it->first;
@@ -2093,15 +2132,16 @@ namespace ORB_SLAM2
       mvpLocalKeyFrames.push_back(it->first);
 
       // 用该关键帧的成员变量mnTrackReferenceForFrame 记录当前帧的id
-      // 表示它已经是当前帧的局部关键帧了，可以防止重复添加局部关键帧
+      // 表示它已经是当前帧的局部关键帧了（已经添加过），可以防止重复添加局部关键帧
       pKF->mnTrackReferenceForFrame = mCurrentFrame.mnId;
     }
 
     // Include also some not-already-included keyframes that are neighbors to
-    // already-included keyframes Step 2.2
-    // 遍历一级共视关键帧，寻找更多的局部关键帧
-    for (vector<KeyFrame *>::const_iterator itKF = mvpLocalKeyFrames.begin(),
-                                            itEndKF = mvpLocalKeyFrames.end();
+    // already-included keyframes
+    // Step 2.2 遍历一级共视关键帧，寻找更多的局部关键帧
+    for (vector<KeyFrame *>::const_iterator
+             itKF = mvpLocalKeyFrames.begin(),
+             itEndKF = mvpLocalKeyFrames.end();
          itKF != itEndKF; itKF++)
     {
       // Limit the number of keyframes
@@ -2109,14 +2149,16 @@ namespace ORB_SLAM2
       if (mvpLocalKeyFrames.size() > 80)
         break;
 
-      KeyFrame *pKF = *itKF;
+      KeyFrame *pKF = *itKF; // 遍历的 一级共视关键帧 对2.2 2.3有效
 
-      // 类型2:一级共视关键帧的共视（前10个）关键帧，称为二级共视关键帧（将邻居的邻居拉拢入伙）
-      // 如果共视帧不足10帧,那么就返回所有具有共视关系的关键帧
+      // 类型2：一级共视关键帧的共视（前10个）关键帧，称为二级共视关键帧（将邻居的邻居拉拢入伙）
+      // 如果共视帧不足10帧，那么就返回所有具有共视关系的关键帧
       const vector<KeyFrame *> vNeighs = pKF->GetBestCovisibilityKeyFrames(10);
-      // vNeighs 是按照共视程度从大到小排列
-      for (vector<KeyFrame *>::const_iterator itNeighKF = vNeighs.begin(),
-                                              itEndNeighKF = vNeighs.end();
+
+      // vNeighs 是按照共视程度从大到小排列 现在遍历它
+      for (vector<KeyFrame *>::const_iterator
+               itNeighKF = vNeighs.begin(),
+               itEndNeighKF = vNeighs.end();
            itNeighKF != itEndNeighKF; itNeighKF++)
       {
         KeyFrame *pNeighKF = *itNeighKF;
@@ -2127,32 +2169,40 @@ namespace ORB_SLAM2
           {
             mvpLocalKeyFrames.push_back(pNeighKF);
             pNeighKF->mnTrackReferenceForFrame = mCurrentFrame.mnId;
+
             //? 找到一个就直接跳出for循环？
+            // 对于一级出来的二级 只要共视程度最高的那个
             break;
           }
         }
       }
 
-      // 类型3:将一级共视关键帧的子关键帧作为局部关键帧（将邻居的孩子们拉拢入伙）
+      // Step 2.3.1
+      // 类型3.1：将一级共视关键帧的子关键帧作为局部关键帧（将邻居的孩子们拉拢入伙）
+      //? GetChilds()的返回类型是set 因为没有重复吗？
       const set<KeyFrame *> spChilds = pKF->GetChilds();
-      for (set<KeyFrame *>::const_iterator sit = spChilds.begin(),
-                                           send = spChilds.end();
+      for (set<KeyFrame *>::const_iterator
+               sit = spChilds.begin(),
+               send = spChilds.end();
            sit != send; sit++)
       {
         KeyFrame *pChildKF = *sit;
         if (!pChildKF->isBad())
         {
+          // mnTrackReferenceForFrame防止重复添加局部关键帧
           if (pChildKF->mnTrackReferenceForFrame != mCurrentFrame.mnId)
           {
             mvpLocalKeyFrames.push_back(pChildKF);
             pChildKF->mnTrackReferenceForFrame = mCurrentFrame.mnId;
+
             //? 找到一个就直接跳出for循环？
             break;
           }
         }
       }
 
-      // 类型3:将一级共视关键帧的父关键帧（将邻居的父母们拉拢入伙）
+      // Step 2.3.2
+      // 类型3.2：将一级共视关键帧的父关键帧（将邻居的父母们拉拢入伙）
       KeyFrame *pParent = pKF->GetParent();
       if (pParent)
       {
@@ -2161,13 +2211,16 @@ namespace ORB_SLAM2
         {
           mvpLocalKeyFrames.push_back(pParent);
           pParent->mnTrackReferenceForFrame = mCurrentFrame.mnId;
+
           //! 感觉是个bug！如果找到父关键帧会直接跳出整个循环
-          break;
+          //! 竹曼也觉得啊 所以竹曼注释掉这个break
+          // break;
         }
       }
-    }
+    } // end 遍历一级共视关键帧
 
     // Step 3：更新当前帧的参考关键帧，与自己共视程度最高的关键帧作为参考关键帧
+    //? 竹曼觉得这个step3 可以放到前面吧 pKFmax很早就已经确定了啊
     if (pKFmax)
     {
       mpReferenceKF = pKFmax;
@@ -2176,17 +2229,17 @@ namespace ORB_SLAM2
   }
 
   /**
-   * @details 重定位过程
-   * @return true
-   * @return false
+   * @brief 重定位过程
    *
+   * @details
    * Step 1：计算当前帧特征点的词袋向量
    * Step 2：找到与当前帧相似的候选关键帧
    * Step 3：通过BoW进行匹配
    * Step 4：通过EPnP算法估计姿态
    * Step 5：通过PoseOptimization对姿态进行优化求解
-   * Step
-   * 6：如果内点较少，则通过投影的方式对之前未匹配的点进行匹配，再进行优化求解
+   * Step 6：如果内点较少，则通过投影的方式对之前未匹配的点进行匹配，再进行优化求解
+   *
+   * @return bool
    */
   bool Tracking::Relocalization()
   {
@@ -2195,8 +2248,8 @@ namespace ORB_SLAM2
     mCurrentFrame.ComputeBoW();
 
     // Relocalization is performed when tracking is lost
-    // Track Lost: Query KeyFrame Database for keyframe candidates for
-    // relocalisation Step 2：用词袋找到与当前帧相似的候选关键帧
+    // Track Lost: Query KeyFrame Database for keyframe candidates for relocalization
+    // Step 2：用词袋找到与当前帧相似的候选关键帧 （后面运算都是基于这里的候选关键帧）
     vector<KeyFrame *> vpCandidateKFs =
         mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame);
 
@@ -2209,11 +2262,13 @@ namespace ORB_SLAM2
     // We perform first an ORB matching with each candidate
     // If enough matches are found we setup a PnP solver
     ORBmatcher matcher(0.75, true);
-    //每个关键帧的解算器
+    //每个关键帧的解算器：每个关键帧都需要一个独立的求解器
+    // 记录具体的任务要匹配的当前帧 和 要匹配的关键帧候选人
     vector<PnPsolver *> vpPnPsolvers;
-    vpPnPsolvers.resize(nKFs);
+    vpPnPsolvers.resize(nKFs); // resize会初始化里面的元素
 
     //每个关键帧和当前帧中特征点的匹配关系
+    // 为每一个候选关键帧生成一个vector<MapPoint *>：每个候选关键帧都有自己持有的地图点
     vector<vector<MapPoint *>> vvpMapPointMatches;
     vvpMapPointMatches.resize(nKFs);
 
@@ -2222,30 +2277,33 @@ namespace ORB_SLAM2
     vbDiscarded.resize(nKFs);
 
     //有效的候选关键帧数目
-    int nCandidates = 0;
+    int nCandidates = 0; // 坏关键帧无效
 
-    // Step 3：遍历所有的候选关键帧，通过词袋进行快速匹配，用匹配结果初始化PnP
+    // Step 3：遍历所有的候选关键帧，通过词袋进行快速匹配（粗匹配），用匹配结果初始化PnP
     // Solver
     for (int i = 0; i < nKFs; i++)
     {
-      KeyFrame *pKF = vpCandidateKFs[i];
+      KeyFrame *pKF = vpCandidateKFs[i]; // 候选关键帧
       if (pKF->isBad())
         vbDiscarded[i] = true;
       else
       {
-        // 当前帧和候选关键帧用BoW进行快速匹配，匹配结果记录在vvpMapPointMatches，nmatches表示匹配的数目
-        int nmatches =
+        // 当前帧和候选关键帧用BoW进行快速匹配，匹配结果记录在vvpMapPointMatches
+        //? BoW粗匹配？ 粗略匹配的结果vvpMapPointMatches 表示候选关键帧与当前帧能匹配上的地图点
+        int nmatches = // nmatches表示匹配的数目
             matcher.SearchByBoW(pKF, mCurrentFrame, vvpMapPointMatches[i]);
-        // 如果和当前帧的匹配数小于15,那么只能放弃这个关键帧
+
+        // 如果和当前帧的匹配数小于15，那么只能放弃这个关键帧
         if (nmatches < 15)
         {
           vbDiscarded[i] = true;
           continue;
         }
+        // 如果匹配数目够用，用匹配结果初始化EPnPsolver
         else
         {
-          // 如果匹配数目够用，用匹配结果初始化EPnPsolver
           // 为什么用EPnP? 因为计算复杂度低，精度高
+          // 配置EPnP求解器：当前帧 和 BoW粗匹配的地图点
           PnPsolver *pSolver =
               new PnPsolver(mCurrentFrame, vvpMapPointMatches[i]);
           pSolver->SetRansacParameters(
@@ -2264,17 +2322,20 @@ namespace ORB_SLAM2
 
     // Alternatively perform some iterations of P4P RANSAC
     // Until we found a camera pose supported by enough inliers
-    // 这里的 P4P RANSAC是Epnp，每次迭代需要4个点
-    // 是否已经找到相匹配的关键帧的标志
-    bool bMatch = false;
+    // 这里的 P4P RANSAC是EPnP，每次迭代需要4个点
+
+    bool bMatch = false; // 是否已经找到相匹配的关键帧的标志
     ORBmatcher matcher2(0.9, true);
 
-    // Step 4: 通过一系列操作,直到找到能够匹配上的关键帧
+    // Step 4: 通过一系列操作（精匹配），直到找到能够匹配上的关键帧
     // 为什么搞这么复杂？答：是担心误闭环
+
+    // 外围的终止条件：每次处理完一个候选关键帧 都要看看是不是可以结束了
+    //有效的候选关键帧数目（还没逐个检查完） 且 没有找到匹配
     while (nCandidates > 0 && !bMatch)
     {
-      //遍历当前所有的候选关键帧
-      for (int i = 0; i < nKFs; i++)
+      //遍历所有的候选关键帧
+      for (int i = 0; i < nKFs; i++) // nKFs 总是大于 nCandidates
       {
         // 忽略放弃的
         if (vbDiscarded[i])
@@ -2287,57 +2348,68 @@ namespace ORB_SLAM2
         int nInliers;
 
         // 表示RANSAC已经没有更多的迭代次数可用 --
-        // 也就是说数据不够好，RANSAC也已经尽力了。。。
+        // 也就是说数据不够好，但是RANSAC也已经尽力了。。。
         bool bNoMore;
 
         // Step 4.1：通过EPnP算法估计姿态，迭代5次
         PnPsolver *pSolver = vpPnPsolvers[i];
+        // EPnP估计位姿结果
         cv::Mat Tcw = pSolver->iterate(5, bNoMore, vbInliers, nInliers);
 
-        // If Ransac reachs max. iterations discard keyframe
-        // bNoMore 为true 表示已经超过了RANSAC最大迭代次数，就放弃当前关键帧
+        // If Ransac reaches max. iterations discard keyframe
+        // bNoMore 为true ：表示已经超过了RANSAC最大迭代次数，就放弃当前关键帧
         if (bNoMore)
         {
           vbDiscarded[i] = true;
           nCandidates--;
         }
 
-        // If a Camera Pose is computed, optimize
+        // If a Camera Pose is computed, then optimize
         if (!Tcw.empty())
         {
           //  Step 4.2：如果EPnP 计算出了位姿，对内点进行BA优化
-          Tcw.copyTo(mCurrentFrame.mTcw);
+          Tcw.copyTo(mCurrentFrame.mTcw); // 当前帧的位姿 = EPnP估计位姿结果
 
           // EPnP 里RANSAC后的内点的集合
           set<MapPoint *> sFound;
 
-          const int np = vbInliers.size();
-          //遍历所有内点
-          for (int j = 0; j < np; j++)
+          const int np = vbInliers.size(); // EPnP结果的内点标记 的数目
+          //遍历所有内点 //?（内点：匹配情况很好的地图点？）
+          for (int j = 0; j < np; j++) //? 这里的j不是特征点id吗
           {
             if (vbInliers[j])
             {
-              mCurrentFrame.mvpMapPoints[j] = vvpMapPointMatches[i][j];
+              // 重定位的目的就是给当前帧指派位姿，现在给当前帧赋予匹配情况好的地图点
+              mCurrentFrame.mvpMapPoints[j] = vvpMapPointMatches[i][j]; // 第i关键帧里面的第j地图点
               sFound.insert(vvpMapPointMatches[i][j]);
             }
             else
+            {
+              // 不是内点的匹配 就把当前帧对应的地图点清空
               mCurrentFrame.mvpMapPoints[j] = NULL;
+            }
           }
 
           // 只优化位姿,不优化地图点的坐标，返回的是内点的数量
+          // 前面的 BoW粗匹配+EPnP精匹配 已经赋值了 当前帧的 位姿+地图点，现在进行motion-only BA
           int nGood = Optimizer::PoseOptimization(&mCurrentFrame);
 
-          // 如果优化之后的内点数目不多，跳过了当前候选关键帧,但是却没有放弃当前帧的重定位
+          // 如果优化之后的内点数目不多，跳过了当前候选关键帧，
+          // 但是却没有放弃当前帧的重定位
           if (nGood < 10)
             continue;
 
           // 删除外点对应的地图点
           for (int io = 0; io < mCurrentFrame.N; io++)
+          {
+            // motion-only BA 优化之后会写入的成员变量
             if (mCurrentFrame.mvbOutlier[io])
+            {
               mCurrentFrame.mvpMapPoints[io] = static_cast<MapPoint *>(NULL);
+            }
+          }
 
-          // If few inliers, search by projection in a coarse window and optimize
-          // again
+          // If few inliers, search by projection in a coarse（粗） window and optimize again
           // Step 4.3：如果内点较少，则通过投影的方式对之前未匹配的点进行匹配，再进行优化求解
           // 前面的匹配关系是用词袋匹配过程得到的
           if (nGood < 50)
@@ -2356,9 +2428,8 @@ namespace ORB_SLAM2
               // 根据投影匹配的结果，再次采用3D-2D pnp BA优化位姿
               nGood = Optimizer::PoseOptimization(&mCurrentFrame);
 
-              // If many inliers but still not enough, search by projection again
-              // in a narrower window the camera has been already optimized with
-              // many points
+              // If many inliers but still not enough, search by projection again in
+              // a narrower window the camera has been already optimized with many points
               // Step 4.4：如果BA后内点数还是比较少(<50)但是还不至于太少(>30)，可以挽救一下,
               // 最后垂死挣扎 重新执行上一步 4.3的过程，只不过使用更小的搜索窗口
               // 这里的位姿已经使用了更多的点进行了优化,应该更准，所以使用更小的窗口搜索
@@ -2367,8 +2438,12 @@ namespace ORB_SLAM2
                 // 用更小窗口、更严格的描述子阈值，重新进行投影搜索匹配
                 sFound.clear();
                 for (int ip = 0; ip < mCurrentFrame.N; ip++)
+                {
                   if (mCurrentFrame.mvpMapPoints[ip])
+                  {
                     sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
+                  }
+                }
                 nadditional = matcher2.SearchByProjection(
                     mCurrentFrame,     //当前帧
                     vpCandidateKFs[i], //候选的关键帧
@@ -2383,8 +2458,12 @@ namespace ORB_SLAM2
                   nGood = Optimizer::PoseOptimization(&mCurrentFrame);
                   //更新地图点
                   for (int io = 0; io < mCurrentFrame.N; io++)
+                  {
                     if (mCurrentFrame.mvbOutlier[io])
+                    {
                       mCurrentFrame.mvpMapPoints[io] = NULL;
+                    }
+                  }
                 }
                 //如果还是不能够满足就放弃了
               }
@@ -2396,12 +2475,13 @@ namespace ORB_SLAM2
           if (nGood >= 50)
           {
             bMatch = true;
+
             // 只要有一个候选关键帧重定位成功，就退出循环，不考虑其他候选关键帧了
             break;
           }
         }
-      } //一直运行,知道已经没有足够的关键帧,或者是已经有成功匹配上的关键帧
-    }
+      } // end 遍历所有的候选关键帧
+    }   //一直运行，直到已经没有候选关键帧，或者已经有成功匹配上的候选关键帧
 
     // 折腾了这么久还是没有匹配上，重定位失败
     if (!bMatch)
@@ -2412,16 +2492,18 @@ namespace ORB_SLAM2
     {
       // 如果匹配上了,说明当前帧重定位成功了(当前帧已经有了自己的位姿)
       // 记录成功重定位帧的id，防止短时间多次重定位
-      mnLastRelocFrameId = mCurrentFrame.mnId;
+      mnLastRelocFrameId = mCurrentFrame.mnId; // 当前帧触发过重定位
       return true;
     }
   }
 
-  //整个追踪线程执行复位操作
+  /**
+   * @brief 整个追踪线程执行复位操作
+   *
+   * @details 基本上是挨个请求各个线程终止
+   */
   void Tracking::Reset()
   {
-    //基本上是挨个请求各个线程终止
-
     if (mpViewer)
     {
       mpViewer->RequestStop();
@@ -2455,7 +2537,7 @@ namespace ORB_SLAM2
 
     if (mpInitializer)
     {
-      delete mpInitializer;
+      delete mpInitializer; // 释放mpInitializer指向的东西
       mpInitializer = static_cast<Initializer *>(NULL);
     }
 
@@ -2468,8 +2550,8 @@ namespace ORB_SLAM2
       mpViewer->Release();
   }
 
+  //目测是 根据配置文件中的参数重新改变已经设置在系统中的参数,但是当前文件中没有找到对它的调用
   //?
-  //目测是根据配置文件中的参数重新改变已经设置在系统中的参数,但是当前文件中没有找到对它的调用
   void Tracking::ChangeCalibration(const string &strSettingPath)
   {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);

@@ -214,7 +214,8 @@ namespace ORB_SLAM2
          */
         std::set<MapPoint *> GetMapPoints();
         /**
-         * @brief Get MapPoint Matches 获取该关键帧的MapPoints
+         * @brief Get MapPoint Matches
+         *     获取该关键帧的MapPoints
          */
         std::vector<MapPoint *> GetMapPointMatches();
         /**

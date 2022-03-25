@@ -128,7 +128,7 @@ namespace ORB_SLAM2
 
         // Search matches between MapPoints in a KeyFrame and ORB in a Frame.
         // Brute force constrained to ORB that belong to the same vocabulary node (at a certain level)
-        // Used in Relocalisation and Loop Detection
+        // Used in Resocialization and Loop Detection
         /**
          * @brief 通过词袋，对关键帧的特征点进行跟踪
          * 步骤

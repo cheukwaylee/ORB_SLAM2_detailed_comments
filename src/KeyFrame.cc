@@ -561,6 +561,7 @@ namespace ORB_SLAM2
     }
 
     //获取当前关键帧的子关键帧
+    //? 这里的返回类型是set 为什么呢 别的都是vector
     set<KeyFrame *> KeyFrame::GetChilds()
     {
         unique_lock<mutex> lockCon(mMutexConnections);
@@ -758,6 +759,7 @@ namespace ORB_SLAM2
     }
 
     // 返回当前关键帧是否已经完蛋了
+    //? 这个关键帧即将要被删除的意思吗？
     bool KeyFrame::isBad()
     {
         unique_lock<mutex> lock(mMutexConnections);

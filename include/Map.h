@@ -70,7 +70,7 @@ namespace ORB_SLAM2
         void EraseKeyFrame(KeyFrame *pKF);
         /**
          * @brief 设置参考地图点
-         * @detials 一般是指,设置当前帧中的参考地图点; 这些点将用于DrawMapPoints函数画图
+         * @details 一般是指,设置当前帧中的参考地图点; 这些点将用于DrawMapPoints函数画图
          *
          * @param[in] vpMPs 地图点们
          */

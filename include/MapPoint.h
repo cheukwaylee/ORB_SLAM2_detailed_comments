@@ -97,9 +97,10 @@ namespace ORB_SLAM2
 
         /**
          * @brief 获取观测到当前地图点的关键帧
-         * @return std::map<KeyFrame*,size_t> 观测到当前地图点的关键帧序列；
-         *                                    size_t
-         * 这个对象对应为该地图点在该关键帧的特征点的访问id
+         *
+         * @return std::map<KeyFrame*, size_t>
+         *       观测到当前地图点的关键帧序列；
+         *       size_t 这个对象对应为该地图点在该关键帧的特征点的访问id
          */
         std::map<KeyFrame *, size_t> GetObservations();
 
@@ -117,7 +118,7 @@ namespace ORB_SLAM2
         void AddObservation(KeyFrame *pKF, size_t idx);
         /**
          * @brief 取消某个关键帧对当前地图点的观测
-         * @detials 如果某个关键帧要被删除，那么会发生这个操作
+         * @details 如果某个关键帧要被删除，那么会发生这个操作
          * @param[in] pKF
          */
         void EraseObservation(KeyFrame *pKF);
@@ -253,8 +254,8 @@ namespace ORB_SLAM2
         // 为什么已经是内点了之后就不需要再进行投影了呢? c
         // 不在当前相机视野中的点（即未通过isInFrustum判断）     //?
         bool mbTrackInView;
-        // TrackLocalMap - UpdateLocalPoints
-        // 中防止将MapPoints重复添加至mvpLocalMapPoints的标记
+        // TrackLocalMap - UpdateLocalPoints中
+        // 防止将MapPoints重复添加至mvpLocalMapPoints的标记
         long unsigned int mnTrackReferenceForFrame;
 
         // TrackLocalMap - SearchLocalPoints 中决定是否进行isInFrustum判断的变量
