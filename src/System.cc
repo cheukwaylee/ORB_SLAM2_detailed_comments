@@ -40,7 +40,7 @@ namespace ORB_SLAM2
       const bool bUseViewer          //是否使用可视化界面
       )
       : mSensor(sensor),                       //初始化传感器类型
-        mpViewer(static_cast<Viewer *>(NULL)), //空指针？ TODO:
+        mpViewer(static_cast<Viewer *>(NULL)), //空指针？ // TODO
         mbReset(false),                        //无复位标志
         mbActivateLocalizationMode(false),     // 默认false 没有这个模式转换标志
         mbDeactivateLocalizationMode(false)    // 默认false 没有这个模式转换标志
@@ -134,7 +134,7 @@ namespace ORB_SLAM2
         &ORB_SLAM2::LocalMapping::Run, //这个线程会调用的函数
         mpLocalMapper                  //这个调用函数的参数
     );
-    // 竹曼的理解 等价于：mpLocalMapper->Run()
+    //? 竹曼的理解 等价于：mpLocalMapper->Run()
     // ORB_SLAM2::LocalMapping::Run(mpLocalMapper)
     // 把类成员的this指针传给类方法
 

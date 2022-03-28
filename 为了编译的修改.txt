@@ -36,7 +36,7 @@ COMPILEDWITHC14
 
 **********************************************
 
-LoopClosing.cc
+LoopClosing.h
 把 
     typedef map<
         KeyFrame *,                                                      //键

@@ -1,4 +1,5 @@
 # cd build
+
 ../Examples/Stereo/stereo_kitti ../Vocabulary/ORBvoc.txt ../Examples/Stereo/KITTI03.yaml /mnt/hgfs/code/data_odometry_gray/00/
 # for tum rgbd
 ../Examples/RGB-D/rgbd_tum ../Vocabulary/ORBvoc.txt ../Examples/RGB-D/TUM1.yaml /mnt/hgfs/code/data_tum_rgbd/rgbd_dataset_freiburg1_xyz/ ../Examples/RGB-D/associations/fr1_xyz.txt 

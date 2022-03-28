@@ -71,7 +71,7 @@ namespace ORB_SLAM2
             const string &strVocFile,      //指定ORB字典文件的路径
             const string &strSettingsFile, //指定yaml配置文件的路径
             const eSensor sensor,          //指定所使用的传感器类型
-            const bool bUseViewer = true); //指定是否使用可视化界面 TODO:
+            const bool bUseViewer = true); //指定是否使用可视化界面 // TODO:
 
         // 下面是针对三种不同类型的传感器所设计的三种运动追踪接口。
         // 彩色图像为CV_8UC3类型，并且都将会被转换成为灰度图像。
@@ -80,7 +80,7 @@ namespace ORB_SLAM2
         // Proccess the given stereo frame. Images must be synchronized and rectified（校正）.
         // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
         // Returns the camera pose (empty if tracking fails).
-        // NOTE 注意这里英文注释的说法，双目图像有同步和校准的概念。 //TODO:
+        // NOTE 注意这里英文注释的说法，双目图像有同步和校准的概念。 // TODO:
         cv::Mat TrackStereo(
             const cv::Mat &imLeft,    //左目图像
             const cv::Mat &imRight,   //右目图像

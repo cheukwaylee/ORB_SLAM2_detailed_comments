@@ -61,7 +61,16 @@ int main(int argc, char **argv)
             << endl;
         return 1;
     }
-    // ../Examples/rgbd_tum
+
+    /*
+
+    ../Examples/rgbd_tum
+    ../Vocabulary/ORBvoc.txt
+    ../Examples/RGB-D/TUM1.yaml
+    /mnt/hgfs/code/data_tum_rgbd/rgbd_dataset_freiburg1_xyz/
+    ../Examples/RGB-D/associations/fr1_xyz.txt
+
+    */
 
     // step 1 Retrieve paths to images
     //按顺序存放需要读取的彩色图像、深度图像的路径，以及对应的时间戳的变量
@@ -188,8 +197,10 @@ int main(int argc, char **argv)
 }
 
 //从关联文件中提取这些需要加载的图像的路径和时间戳
-void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageFilenamesRGB,
-                vector<string> &vstrImageFilenamesD, vector<double> &vTimestamps)
+void LoadImages(const string &strAssociationFilename,
+                vector<string> &vstrImageFilenamesRGB,
+                vector<string> &vstrImageFilenamesD,
+                vector<double> &vTimestamps)
 {
     //输入文件流
     ifstream fAssociation;
@@ -199,24 +210,31 @@ void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageF
     //一直读取,知道文件结束
     while (!fAssociation.eof())
     {
-        string s;
+        string s; // 每一行
         //读取一行的内容到字符串s中
         getline(fAssociation, s);
+
         //如果不是空行就可以分析数据了
         if (!s.empty())
         {
             //字符串流
             stringstream ss;
             //字符串格式:  时间戳 rgb图像路径 时间戳 图像路径
-            ss << s;
+            ss << s; // 整行读入 然后按空格间断输出
+
             double t;
             string sRGB, sD;
+
             ss >> t;
             vTimestamps.push_back(t);
+
             ss >> sRGB;
             vstrImageFilenamesRGB.push_back(sRGB);
+
             // ! bug? 左右目的时间戳可能不一致是否需要考虑单独处理
+            // 没有写入任何一个向量 相当于第二个时间戳被抛弃了
             ss >> t;
+
             ss >> sD;
             vstrImageFilenamesD.push_back(sD);
         }

@@ -32,8 +32,10 @@ using namespace std;
 
 // 基本操作类似 stereo_euroc.cc
 
-void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
-                vector<string> &vstrImageRight, vector<double> &vTimestamps);
+void LoadImages(const string &strPathToSequence,
+                vector<string> &vstrImageLeft,
+                vector<string> &vstrImageRight,
+                vector<double> &vTimestamps);
 
 int main(int argc, char **argv)
 {
@@ -137,23 +139,28 @@ int main(int argc, char **argv)
 }
 
 // 类似 mono_kitti.cc， 不过是生成了双目的图像路径
-void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
-                vector<string> &vstrImageRight, vector<double> &vTimestamps)
+void LoadImages(const string &strPathToSequence, // /mnt/hgfs/code/data_odometry_gray/00/
+                vector<string> &vstrImageLeft,
+                vector<string> &vstrImageRight,
+                vector<double> &vTimestamps)
 {
     ifstream fTimes;
+
+    // /mnt/hgfs/code/data_odometry_gray/00/times.txt
     string strPathTimeFile = strPathToSequence + "/times.txt";
+
     fTimes.open(strPathTimeFile.c_str());
     while (!fTimes.eof())
     {
         string s;
-        getline(fTimes, s);
+        getline(fTimes, s); // 读入行
         if (!s.empty())
         {
             stringstream ss;
             ss << s;
             double t;
             ss >> t;
-            vTimestamps.push_back(t);
+            vTimestamps.push_back(t); // 相对时间，从0开始，单位秒
         }
     }
 
