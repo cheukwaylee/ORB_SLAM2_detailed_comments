@@ -65,15 +65,14 @@ namespace ORB_SLAM2
 
   ///构造函数
   Tracking::Tracking(
-      System *pSys,                 //系统实例
-      ORBVocabulary *pVoc,          // BOW字典
-      FrameDrawer *pFrameDrawer,    //帧绘制器
-      MapDrawer *pMapDrawer,        //地图点绘制器
-      Map *pMap,                    //地图句柄
-      KeyFrameDatabase *pKFDB,      //关键帧产生的词袋数据库
-      const string &strSettingPath, //配置文件路径
-      const int sensor              //传感器类型
-      )
+      System *pSys,                             //系统实例
+      ORBVocabulary *pVoc,                      // BOW字典
+      FrameDrawer *pFrameDrawer,                //帧绘制器
+      MapDrawer *pMapDrawer,                    //地图点绘制器
+      Map *pMap,                                //地图句柄
+      KeyFrameDatabase *pKFDB,                  //关键帧产生的词袋数据库
+      const string &strSettingPath,             //配置文件路径
+      const int sensor)                         //传感器类型
       : mState(NO_IMAGES_YET),                  //当前系统还没有准备好
         mSensor(sensor), mbOnlyTracking(false), //处于SLAM模式
         mbVO(false),                            //当处于纯跟踪模式的时候，这个变量表示了当前跟踪状态的好坏
@@ -296,10 +295,9 @@ namespace ORB_SLAM2
   // 2、进行tracking过程
   // 输出世界坐标系到该帧相机坐标系的变换矩阵
   cv::Mat Tracking::GrabImageRGBD(
-      const cv::Mat &imRGB,   //彩色图像
-      const cv::Mat &imD,     //深度图像
-      const double &timestamp //时间戳
-  )
+      const cv::Mat &imRGB,    //彩色图像
+      const cv::Mat &imD,      //深度图像
+      const double &timestamp) //时间戳
   {
     mImGray = imRGB;
     mImDepth = imD; // add LK-RGBD
@@ -342,23 +340,25 @@ namespace ORB_SLAM2
     {
       clock_t a = clock();
       mCurrentFrame = Frame(true);
-      cv::Mat mTcw;
+      cv::Mat Tcw;
       last_mnMatchesInliers = mnMatchesInliers;
 
       mLKimg = computeMtcwUseLK(
           mpLastKeyFrame,
-          imRGB,
-          mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId == 1,
+          imRGB,                                                 // [in] current frame RGB imgage
+          (mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId) == 1, // [in] if last frame is keyframe
           mK, mDistCoef,
-          mTcw,
-          mnMatchesInliers);
+          Tcw,               // [out] current frame pose
+          mnMatchesInliers); // [out] the number of current frame Matches Inliers
       // mLKimg = flow(mpLastKeyFrame, imRGB,  mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId ==1, mK, mDistCoef, mTcw);
 
       mpFrameDrawer->mLK = mLKimg;
-      mCurrentFrame.mTcw = mTcw;
+      mCurrentFrame.mTcw = Tcw;
       clock_t b = clock();
       cout << "track LK optical flow use time:" << 1000 * (float)(b - a) / CLOCKS_PER_SEC << "ms" << endl;
       mpFrameDrawer->Update(this);
+
+      // no need keyframe before, but LK tracking failed, so need keyframe!
       mNeedNewKF = NeedNewKeyFrame();
     }
 
@@ -457,7 +457,7 @@ namespace ORB_SLAM2
     return mCurrentFrame.mTcw.clone();
   }
 
-  /*
+  /**
    * @brief
    * Main tracking function. It is independent of the input sensor.
    *
@@ -1672,7 +1672,8 @@ namespace ORB_SLAM2
     if ((mCurrentFrame.mnId - mnLastRelocFrameId < mMaxFrames) && (nKFs > mMaxFrames))
       return false;
 
-    /* // add LK-RGBD
+    /*
+// add LK-RGBD
 
     // Tracked MapPoints in the reference keyframe
     // Step 4：得到参考关键帧跟踪到的地图点数量
@@ -1686,13 +1687,15 @@ namespace ORB_SLAM2
     // 参考关键帧的地图点中观测的数目>= nMinObs 的地图点数目
     int nRefMatches = mpReferenceKF->TrackedMapPoints(nMinObs);
 
+// end add LK-RGBD
     */
 
     // Local Mapping accept keyframes?
     // Step 5：查询局部地图线程是否繁忙，当前能否接受新的关键帧
     bool bLocalMappingIdle = mpLocalMapper->AcceptKeyFrames();
 
-    /* // add LK-RGBD
+    /*
+// add LK-RGBD
 
     // Check how many "close" points are being tracked and how many could be potentially created.
     // Step 6：对于双目或RGBD摄像头，统计成功跟踪的近点的数量：
@@ -1735,6 +1738,7 @@ namespace ORB_SLAM2
     if (mSensor == System::MONOCULAR)
       thRefRatio = 0.9f;
 
+// end add LK-RGBD
     */
 
     // Condition 1a: More than "MaxFrames" have passed from last keyframe insertion
@@ -1746,7 +1750,8 @@ namespace ORB_SLAM2
     const bool c1b = ((mCurrentFrame.mnId - mnLastKeyFrameId) >= mMinFrames &&
                       bLocalMappingIdle);
 
-    /* // add LK-RGBD
+    /*
+// add LK-RGBD
 
     // Condition 1c: tracking is weak
     // Step 7.4：在双目，RGB-D的情况下：当前帧跟踪到的点比参考关键帧的0.25倍还少，或者满足bNeedToInsertClose
@@ -1763,15 +1768,27 @@ namespace ORB_SLAM2
         ((mnMatchesInliers < nRefMatches * thRefRatio || bNeedToInsertClose) &&
          mnMatchesInliers > 15); // 跟踪到的内点太少：//?就是跟丢了吧？
 
+// end add LK-RGBD
     */
 
     // add LK-RGBD
-    const bool c3 = mSensor != System::MONOCULAR && (mnMatchesInliers < 300 && mnMatchesInliers > 0);
-    const bool c4 = mSensor != System::MONOCULAR && (mnMatchesInliers < 100 && mnMatchesInliers > 0);
-    const bool c5 = last_mnMatchesInliers / mnMatchesInliers > 2; /// inlier decrease fast
+    //! debug: Floating point exception
+    if (mnMatchesInliers == 0)
+      mnMatchesInliers = 1;
+    const bool c3 = (mSensor != System::MONOCULAR) && (mnMatchesInliers < 300 && mnMatchesInliers > 0);
+    const bool c4 = (mSensor != System::MONOCULAR) && (mnMatchesInliers < 100 && mnMatchesInliers > 0);
+    const bool c5 = (last_mnMatchesInliers / mnMatchesInliers) > 2; // inlier decrease fast
+    // end add LK-RGBD
+
+    // original ORBSLAM2 Criterion
+    // if ((c1a || c1b || c1c) && c2)
 
     // add LK-RGBD
-    // if ((c1a || c1b || c1c) && c2)
+    // c1a: long time no keyframe inserted
+    // c1b: keyframe interval larger than threshold AND LocalMapper is available
+    // c3: the number of matched inlier in frame-to-frame (0, 300)
+    // c4: the number of matched inlier in frame-to-frame (0, 100)
+    // c5: the number of matched inlier in frame-to-frame decrease too fast
     if (((c1a || c1b) && c3) || (c4 || c5))
     {
       // If the mapping accepts keyframes, insert keyframe.
