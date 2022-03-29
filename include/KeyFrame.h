@@ -393,9 +393,13 @@ namespace ORB_SLAM2
 
         cv::Mat Cw; ///< Stereo middel point. Only for visualization
 
+        // add LK-RGBD
+    public:
         /// MapPoints associated to keypoints
         std::vector<MapPoint *> mvpMapPoints;
+        // end add LK-RGBD
 
+    protected:
         // BoW
         KeyFrameDatabase *mpKeyFrameDB;
         /// 词袋对象

@@ -46,6 +46,8 @@
 #include <iostream>
 #include <mutex>
 
+#include "LK.h" // add LK-RGBD
+
 using namespace std;
 
 // 程序中变量名的第一个字母如果为"m"则表示为类中的成员变量，member
@@ -300,9 +302,10 @@ namespace ORB_SLAM2
   )
   {
     mImGray = imRGB;
+    mImDepth = imD; // add LK-RGBD
     cv::Mat imDepth = imD;
 
-    // step 1：将RGB或RGBA图像转为灰度图像
+    // step 1 ：将RGB或RGBA图像转为灰度图像
     if (mImGray.channels() == 3)
     {
       if (mbRGB)
@@ -330,20 +333,60 @@ namespace ORB_SLAM2
           CV_32F,           //输出图像的数据类型
           mDepthMapFactor); //缩放系数
 
-    // 步骤3：构造Frame
-    mCurrentFrame = Frame(
-        mImGray,            //灰度图像
-        imDepth,            //深度图像
-        timestamp,          //时间戳
-        mpORBextractorLeft, // ORB特征提取器
-        mpORBVocabulary,    //词典
-        mK,                 //相机内参矩阵
-        mDistCoef,          //相机的去畸变参数
-        mbf,                //相机基线*相机焦距
-        mThDepth);          //内外点区分深度阈值
+    // step 3 ：构造Frame
+    // add LK-RGBD: depends on whether need new keyframe or not
 
-    // 步骤4：跟踪
-    Track();
+    // step 4 ：跟踪
+    mNeedNewKF = NeedNewKeyFrame();
+    if (!mNeedNewKF)
+    {
+      clock_t a = clock();
+      mCurrentFrame = Frame(true);
+      cv::Mat mTcw;
+      last_mnMatchesInliers = mnMatchesInliers;
+
+      mLKimg = computeMtcwUseLK(
+          mpLastKeyFrame,
+          imRGB,
+          mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId == 1,
+          mK, mDistCoef,
+          mTcw,
+          mnMatchesInliers);
+      // mLKimg = flow(mpLastKeyFrame, imRGB,  mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId ==1, mK, mDistCoef, mTcw);
+
+      mpFrameDrawer->mLK = mLKimg;
+      mCurrentFrame.mTcw = mTcw;
+      clock_t b = clock();
+      cout << "track LK optical flow use time:" << 1000 * (float)(b - a) / CLOCKS_PER_SEC << "ms" << endl;
+      mpFrameDrawer->Update(this);
+      mNeedNewKF = NeedNewKeyFrame();
+    }
+
+    // same as the case without introducing LK
+    if (mNeedNewKF)
+    {
+      clock_t a1 = clock();
+      mCurrentFrame = Frame(
+          mImGray,            //灰度图像
+          imDepth,            //深度图像
+          timestamp,          //时间戳
+          mpORBextractorLeft, // ORB特征提取器
+          mpORBVocabulary,    //词典
+          mK,                 //相机内参矩阵
+          mDistCoef,          //相机的去畸变参数
+          mbf,                //相机基线*相机焦距
+          mThDepth);          //内外点区分深度阈值
+      // cout<<" track Feature :currentFrame ID:"<<mCurrentFrame.mnId<<endl;
+      Track();
+      clock_t a2 = clock();
+      cout << "KeyFrame track feature  use time:" << 1000 * (float)(a2 - a1) / CLOCKS_PER_SEC << "ms------" << endl;
+    }
+
+    // cout << "currentFrame and pose: " << mCurrentFrame.mnId << endl;
+    // cout << mCurrentFrame.mTcw << endl;
+    // cout << "orbslam mTcw:" << endl
+    //      << mCurrentFrame.mTcw << endl;
+    // count++;
 
     //返回当前帧的位姿
     return mCurrentFrame.mTcw.clone();
@@ -655,6 +698,7 @@ namespace ORB_SLAM2
 
       // Step 4：更新显示线程中的图像、特征点、地图点等信息
       mpFrameDrawer->Update(this);
+      mpFrameDrawer->mLK = mLKimg; // add LK-RGBD
 
       // If tracking were good, check if we insert a keyframe
       //只有在成功追踪时才考虑生成关键帧的问题
@@ -1596,8 +1640,18 @@ namespace ORB_SLAM2
    * @return true   需要
    * @return false   不需要
    */
+  // add LK-RGBD
+  // TODO 插入关键帧策略重大变更！！！
   bool Tracking::NeedNewKeyFrame()
   {
+    // add LK-RGBD
+    static int frameCount = 0;
+    if (frameCount < 3)
+    {
+      frameCount++;
+      return true;
+    }
+
     // Step 1：纯VO模式下不插入关键帧
     if (mbOnlyTracking)
       return false;
@@ -1618,6 +1672,8 @@ namespace ORB_SLAM2
     if ((mCurrentFrame.mnId - mnLastRelocFrameId < mMaxFrames) && (nKFs > mMaxFrames))
       return false;
 
+    /* // add LK-RGBD
+
     // Tracked MapPoints in the reference keyframe
     // Step 4：得到参考关键帧跟踪到的地图点数量
     // UpdateLocalKeyFrames()函数中会将 与当前关键帧共视程度最高的关键帧 设定为 当前帧的参考关键帧
@@ -1630,9 +1686,13 @@ namespace ORB_SLAM2
     // 参考关键帧的地图点中观测的数目>= nMinObs 的地图点数目
     int nRefMatches = mpReferenceKF->TrackedMapPoints(nMinObs);
 
+    */
+
     // Local Mapping accept keyframes?
     // Step 5：查询局部地图线程是否繁忙，当前能否接受新的关键帧
     bool bLocalMappingIdle = mpLocalMapper->AcceptKeyFrames();
+
+    /* // add LK-RGBD
 
     // Check how many "close" points are being tracked and how many could be potentially created.
     // Step 6：对于双目或RGBD摄像头，统计成功跟踪的近点的数量：
@@ -1675,6 +1735,8 @@ namespace ORB_SLAM2
     if (mSensor == System::MONOCULAR)
       thRefRatio = 0.9f;
 
+    */
+
     // Condition 1a: More than "MaxFrames" have passed from last keyframe insertion
     // Step 7.2：很长时间没有插入关键帧，可以插入
     const bool c1a = (mCurrentFrame.mnId - mnLastKeyFrameId) >= mMaxFrames;
@@ -1683,6 +1745,8 @@ namespace ORB_SLAM2
     // Step 7.3：满足插入关键帧的最小间隔 且 localMapper处于空闲状态，可以插入
     const bool c1b = ((mCurrentFrame.mnId - mnLastKeyFrameId) >= mMinFrames &&
                       bLocalMappingIdle);
+
+    /* // add LK-RGBD
 
     // Condition 1c: tracking is weak
     // Step 7.4：在双目，RGB-D的情况下：当前帧跟踪到的点比参考关键帧的0.25倍还少，或者满足bNeedToInsertClose
@@ -1699,7 +1763,16 @@ namespace ORB_SLAM2
         ((mnMatchesInliers < nRefMatches * thRefRatio || bNeedToInsertClose) &&
          mnMatchesInliers > 15); // 跟踪到的内点太少：//?就是跟丢了吧？
 
-    if ((c1a || c1b || c1c) && c2)
+    */
+
+    // add LK-RGBD
+    const bool c3 = mSensor != System::MONOCULAR && (mnMatchesInliers < 300 && mnMatchesInliers > 0);
+    const bool c4 = mSensor != System::MONOCULAR && (mnMatchesInliers < 100 && mnMatchesInliers > 0);
+    const bool c5 = last_mnMatchesInliers / mnMatchesInliers > 2; /// inlier decrease fast
+
+    // add LK-RGBD
+    // if ((c1a || c1b || c1c) && c2)
+    if (((c1a || c1b) && c3) || (c4 || c5))
     {
       // If the mapping accepts keyframes, insert keyframe.
       // Otherwise send a signal to interrupt BA
@@ -1721,7 +1794,9 @@ namespace ORB_SLAM2
           // tracking插入关键帧不是直接插入，而且先插入到mlNewKeyFrames中，
           // 然后localmapper再逐个pop出来插入到mspKeyFrames
 
-          if (mpLocalMapper->KeyframesInQueue() < 3)
+          // add LK-RGBD
+          // if (mpLocalMapper->KeyframesInQueue() < 3)
+          if (mpLocalMapper->KeyframesInQueue() < 2)
             //队列中的关键帧数目不是很多,可以插入
             return true;
           else

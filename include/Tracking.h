@@ -66,6 +66,10 @@ namespace ORB_SLAM2
     class Tracking
     {
 
+    public: // add LK-RGBD
+        bool mNeedNewKF = true;
+        cv::Mat mLKimg;
+
     public:
         /**
          * @brief 构造函数
@@ -150,7 +154,7 @@ namespace ORB_SLAM2
 
         // Load new settings
         // The focal length should be similar or scale prediction will fail when projecting points
-        // TODO: Modify MapPoint::PredictScale to take into account focal lenght
+        // TODO Modify MapPoint::PredictScale to take into account focal length
         /**
          * @brief
          *
@@ -183,7 +187,7 @@ namespace ORB_SLAM2
         ///上一帧的跟踪状态.这个变量在绘制当前帧的时候会被使用到
         eTrackingState mLastProcessedState;
 
-        // Input sensor: MONOCULAR, STEREO, RGBD //TODO: 为什么不是枚举
+        // Input sensor: MONOCULAR, STEREO, RGBD // TODO: 为什么不是枚举
         ///传感器类型
         int mSensor;
 
@@ -193,6 +197,7 @@ namespace ORB_SLAM2
         ///> 还有当前帧的灰度图像 // 提问,那么在双目输入和在RGBD输入的时候呢?
         ///>             // ANSWER 在双目输入和在RGBD输入时，为左侧图像的灰度图
         cv::Mat mImGray;
+        cv::Mat mImDepth; // add LK-RGBD
 
         // Initialization Variables (Monocular)
         // 初始化时前两帧相关变量
@@ -433,6 +438,7 @@ namespace ORB_SLAM2
         // Current matches in frame
         ///当前帧中的进行匹配的内点,将会被不同的函数反复使用
         int mnMatchesInliers;
+        int last_mnMatchesInliers; // add LK-RGBD
 
         // Last Frame, KeyFrame and Relocalization Info
         //  上一关键帧
@@ -447,7 +453,7 @@ namespace ORB_SLAM2
 
         // uniform Motion Model
         // 在上一循环中：(当前帧 wrt 上一帧) == （下一帧 wrt 当前帧）作为下一次循环的初值
-        cv::Mat mVelocity; 
+        cv::Mat mVelocity;
 
         // Color order (true RGB, false BGR, ignored if grayscale)
         /// RGB图像的颜色通道顺序

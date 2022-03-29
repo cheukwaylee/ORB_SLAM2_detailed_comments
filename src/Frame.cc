@@ -100,6 +100,13 @@ namespace ORB_SLAM2
             SetPose(frame.mTcw);
     }
 
+    // add LK-RGBD
+    Frame::Frame(bool idPlus)
+    {
+        if (idPlus)
+            mnId = nNextId++;
+    }
+
     /**
      * @brief 为双目相机准备的构造函数
      *
@@ -901,9 +908,9 @@ namespace ORB_SLAM2
         // maxd = baseline * length_focal / minZ
         // mind = baseline * length_focal / maxZ
 
-        const float minZ = mb;
+        const float minZ = mb;         // TODO bug? mb没有初始化，mb的赋值在构造函数中放在ComputeStereoMatches函数的后面
         const float minD = 0;          // 最小视差为0，对应无穷远
-        const float maxD = mbf / minZ; // 最大视差对应的距离是相机的基线
+        const float maxD = mbf / minZ; // 最大视差对应的距离是相机的基线 // TODO 最大视差, 对应最小深度 mbf/minZ = mbf/mb = mbf/(mbf/fx) = fx (wubo???)
 
         // 保存sad块匹配相似度和左图特征点索引
         vector<pair<int, int>> vDistIdx;
