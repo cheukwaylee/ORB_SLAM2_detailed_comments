@@ -187,7 +187,7 @@ namespace ORB_SLAM2
             // NOTICE 注意对于我所遇到的问题,ORB-SLAM2是这样子来处理的
             cv::waitKey(mT);
 
-            // add LK-RGBD
+            // step 4plus: add LK-RGBD-Stereo
             // cv::Mat imd = mpFrameDrawer->DrawDepth();
             // cv::imshow("ORB-SLAM2: Current Depth",imd);
             // cv::waitKey(mT);
@@ -197,7 +197,7 @@ namespace ORB_SLAM2
                 cv::imshow("LK OpticalFlow", LKcolor);
                 cv::waitKey(mT);
             }
-            // end add LK-RGBD
+            // end add LK-RGBD-Stereo
 
             // step 5 相应其他请求
             //复位按钮

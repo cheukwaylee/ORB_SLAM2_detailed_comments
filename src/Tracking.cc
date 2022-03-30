@@ -46,7 +46,7 @@
 #include <iostream>
 #include <mutex>
 
-#include "LK.h" // add LK-RGBD
+#include "LK.h" // add LK-RGBD-Stereo
 
 using namespace std;
 
@@ -271,22 +271,87 @@ namespace ORB_SLAM2
     }
 
     // Step 2 ：构造Frame对象
-    mCurrentFrame = Frame(
-        mImGray,             //左目图像
-        imGrayRight,         //右目图像
-        timestamp,           //时间戳
-        mpORBextractorLeft,  //左目特征提取器
-        mpORBextractorRight, //右目特征提取器
-        mpORBVocabulary,     //字典
-        mK,                  //内参矩阵
-        mDistCoef,           //去畸变参数
-        mbf,                 //基线长度
-        mThDepth);           //远点,近点的区分阈值
+    // add LK-Stereo: depends on whether need new keyframe or not
 
     // Step 3 ：跟踪
-    Track();
+    mNeedNewKF = NeedNewKeyFrame();
+    // mNeedNewKF = true;
+    if (!mNeedNewKF)
+    {
+#ifdef COMPILEDWITHC14
+      std::chrono::steady_clock::time_point t1_LK = std::chrono::steady_clock::now();
+#else
+      std::chrono::monotonic_clock::time_point t1_LK = std::chrono::monotonic_clock::now();
+#endif
+      mCurrentFrame = Frame(true);
+      cv::Mat Tcw;
+      last_mnMatchesInliers = mnMatchesInliers;
+
+      mLKimg = computeMtcwUseLK(
+          mpLastKeyFrame,
+          imRectRight,                                           // [in] current frame RGB imgage
+          (mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId) == 1, // [in] if last frame is keyframe
+          mK, mDistCoef,
+          Tcw,               // [out] current frame pose
+          mnMatchesInliers); // [out] the number of current frame Matches Inliers
+      // mLKimg = flow(mpLastKeyFrame, imRGB,  mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId ==1, mK, mDistCoef, mTcw);
+
+      mpFrameDrawer->mLK = mLKimg;
+      mCurrentFrame.mTcw = Tcw;
+#ifdef COMPILEDWITHC14
+      std::chrono::steady_clock::time_point t2_LK = std::chrono::steady_clock::now();
+#else
+      std::chrono::monotonic_clock::time_point t2_LK = std::chrono::monotonic_clock::now();
+#endif
+      cout << "------ track LK optical flow  use time: "
+           << chrono::duration_cast<std::chrono::duration<double>>(t2_LK - t1_LK).count()
+           << " us" << endl;
+      mpFrameDrawer->Update(this);
+
+      // no need keyframe before, but LK tracking failed, so need keyframe!
+      mNeedNewKF = NeedNewKeyFrame();
+    }
+
+    // same as the case without introducing LK
+    if (mNeedNewKF)
+    {
+#ifdef COMPILEDWITHC14
+      std::chrono::steady_clock::time_point t1_ORB = std::chrono::steady_clock::now();
+#else
+      std::chrono::monotonic_clock::time_point t1_ORB = std::chrono::monotonic_clock::now();
+#endif
+      mCurrentFrame = Frame(
+          mImGray,             //左目图像
+          imGrayRight,         //右目图像
+          timestamp,           //时间戳
+          mpORBextractorLeft,  //左目特征提取器
+          mpORBextractorRight, //右目特征提取器
+          mpORBVocabulary,     //字典
+          mK,                  //内参矩阵
+          mDistCoef,           //去畸变参数
+          mbf,                 //基线长度
+          mThDepth);           //远点,近点的区分阈值
+      // cout << "track Feature: currentFrame ID: " << mCurrentFrame.mnId << endl;
+      Track();
+#ifdef COMPILEDWITHC14
+      std::chrono::steady_clock::time_point t2_ORB = std::chrono::steady_clock::now();
+#else
+      std::chrono::monotonic_clock::time_point t2_ORB = std::chrono::monotonic_clock::now();
+#endif
+      cout << "****** KeyFrame track feature use time: "
+           << chrono::duration_cast<std::chrono::duration<double>>(t2_ORB - t1_ORB).count()
+           << " us" << endl;
+    }
+
+    // cout << "currentFrame and pose: " << mCurrentFrame.mnId << endl;
+    // cout << mCurrentFrame.mTcw << endl;
+    // cout << "orbslam mTcw:" << endl
+    //      << mCurrentFrame.mTcw << endl;
+    // count++;
 
     //返回位姿
+    // cout << "current frame pose " << endl
+    //      << mCurrentFrame.mTcw << endl;
     return mCurrentFrame.mTcw.clone();
   }
 
@@ -300,7 +365,7 @@ namespace ORB_SLAM2
       const double &timestamp) //时间戳
   {
     mImGray = imRGB;
-    mImDepth = imD; // add LK-RGBD
+    mImDepth = imD; // add LK-RGBD //? for what???
     cv::Mat imDepth = imD;
 
     // step 1 ：将RGB或RGBA图像转为灰度图像
@@ -338,7 +403,11 @@ namespace ORB_SLAM2
     mNeedNewKF = NeedNewKeyFrame();
     if (!mNeedNewKF)
     {
-      clock_t a = clock();
+#ifdef COMPILEDWITHC14
+      std::chrono::steady_clock::time_point t1_LK = std::chrono::steady_clock::now();
+#else
+      std::chrono::monotonic_clock::time_point t1_LK = std::chrono::monotonic_clock::now();
+#endif
       mCurrentFrame = Frame(true);
       cv::Mat Tcw;
       last_mnMatchesInliers = mnMatchesInliers;
@@ -354,8 +423,14 @@ namespace ORB_SLAM2
 
       mpFrameDrawer->mLK = mLKimg;
       mCurrentFrame.mTcw = Tcw;
-      clock_t b = clock();
-      cout << "track LK optical flow use time:" << 1000 * (float)(b - a) / CLOCKS_PER_SEC << "ms" << endl;
+#ifdef COMPILEDWITHC14
+      std::chrono::steady_clock::time_point t2_LK = std::chrono::steady_clock::now();
+#else
+      std::chrono::monotonic_clock::time_point t2_LK = std::chrono::monotonic_clock::now();
+#endif
+      cout << "------ track LK optical flow  use time: "
+           << chrono::duration_cast<std::chrono::duration<double>>(t2_LK - t1_LK).count()
+           << " us" << endl;
       mpFrameDrawer->Update(this);
 
       // no need keyframe before, but LK tracking failed, so need keyframe!
@@ -365,7 +440,11 @@ namespace ORB_SLAM2
     // same as the case without introducing LK
     if (mNeedNewKF)
     {
-      clock_t a1 = clock();
+#ifdef COMPILEDWITHC14
+      std::chrono::steady_clock::time_point t1_ORB = std::chrono::steady_clock::now();
+#else
+      std::chrono::monotonic_clock::time_point t1_ORB = std::chrono::monotonic_clock::now();
+#endif
       mCurrentFrame = Frame(
           mImGray,            //灰度图像
           imDepth,            //深度图像
@@ -376,10 +455,16 @@ namespace ORB_SLAM2
           mDistCoef,          //相机的去畸变参数
           mbf,                //相机基线*相机焦距
           mThDepth);          //内外点区分深度阈值
-      // cout<<" track Feature :currentFrame ID:"<<mCurrentFrame.mnId<<endl;
+      // cout << "track Feature: currentFrame ID: " << mCurrentFrame.mnId << endl;
       Track();
-      clock_t a2 = clock();
-      cout << "KeyFrame track feature  use time:" << 1000 * (float)(a2 - a1) / CLOCKS_PER_SEC << "ms------" << endl;
+#ifdef COMPILEDWITHC14
+      std::chrono::steady_clock::time_point t2_ORB = std::chrono::steady_clock::now();
+#else
+      std::chrono::monotonic_clock::time_point t2_ORB = std::chrono::monotonic_clock::now();
+#endif
+      cout << "****** KeyFrame track feature use time: "
+           << chrono::duration_cast<std::chrono::duration<double>>(t2_ORB - t1_ORB).count()
+           << " us" << endl;
     }
 
     // cout << "currentFrame and pose: " << mCurrentFrame.mnId << endl;
@@ -389,6 +474,8 @@ namespace ORB_SLAM2
     // count++;
 
     //返回当前帧的位姿
+    // cout << "current frame pose " << endl
+    //      << mCurrentFrame.mTcw << endl;
     return mCurrentFrame.mTcw.clone();
   }
 
@@ -698,7 +785,7 @@ namespace ORB_SLAM2
 
       // Step 4：更新显示线程中的图像、特征点、地图点等信息
       mpFrameDrawer->Update(this);
-      mpFrameDrawer->mLK = mLKimg; // add LK-RGBD
+      mpFrameDrawer->mLK = mLKimg; // add LK-RGBD-Stereo
 
       // If tracking were good, check if we insert a keyframe
       //只有在成功追踪时才考虑生成关键帧的问题
@@ -1640,15 +1727,22 @@ namespace ORB_SLAM2
    * @return true   需要
    * @return false   不需要
    */
-  // add LK-RGBD
+  // add LK-RGBD-Stereo
   // TODO 插入关键帧策略重大变更！！！
   bool Tracking::NeedNewKeyFrame()
   {
-    // add LK-RGBD
+    // add LK-RGBD-Stereo
     static int frameCount = 0;
     if (frameCount < 3)
     {
       frameCount++;
+      return true;
+    }
+
+    //! bug: if LK is not initied,
+    //! the current frame should be tracking by original ORBSLAM
+    if (mnMatchesInliers == -1)
+    {
       return true;
     }
 
@@ -1673,7 +1767,7 @@ namespace ORB_SLAM2
       return false;
 
     /*
-// add LK-RGBD
+// add LK-RGBD-Stereo
 
     // Tracked MapPoints in the reference keyframe
     // Step 4：得到参考关键帧跟踪到的地图点数量
@@ -1687,7 +1781,7 @@ namespace ORB_SLAM2
     // 参考关键帧的地图点中观测的数目>= nMinObs 的地图点数目
     int nRefMatches = mpReferenceKF->TrackedMapPoints(nMinObs);
 
-// end add LK-RGBD
+// end add LK-RGBD-Stereo
     */
 
     // Local Mapping accept keyframes?
@@ -1695,7 +1789,7 @@ namespace ORB_SLAM2
     bool bLocalMappingIdle = mpLocalMapper->AcceptKeyFrames();
 
     /*
-// add LK-RGBD
+// add LK-RGBD-Stereo
 
     // Check how many "close" points are being tracked and how many could be potentially created.
     // Step 6：对于双目或RGBD摄像头，统计成功跟踪的近点的数量：
@@ -1738,7 +1832,7 @@ namespace ORB_SLAM2
     if (mSensor == System::MONOCULAR)
       thRefRatio = 0.9f;
 
-// end add LK-RGBD
+// end add LK-RGBD-Stereo
     */
 
     // Condition 1a: More than "MaxFrames" have passed from last keyframe insertion
@@ -1751,7 +1845,7 @@ namespace ORB_SLAM2
                       bLocalMappingIdle);
 
     /*
-// add LK-RGBD
+// add LK-RGBD-Stereo
 
     // Condition 1c: tracking is weak
     // Step 7.4：在双目，RGB-D的情况下：当前帧跟踪到的点比参考关键帧的0.25倍还少，或者满足bNeedToInsertClose
@@ -1768,22 +1862,23 @@ namespace ORB_SLAM2
         ((mnMatchesInliers < nRefMatches * thRefRatio || bNeedToInsertClose) &&
          mnMatchesInliers > 15); // 跟踪到的内点太少：//?就是跟丢了吧？
 
-// end add LK-RGBD
+// end add LK-RGBD-Stereo
     */
 
-    // add LK-RGBD
+    // add LK-RGBD-Stereo
     //! debug: Floating point exception
     if (mnMatchesInliers == 0)
       mnMatchesInliers = 1;
+    // the greater threshold, the more strictly, so more LK
     const bool c3 = (mSensor != System::MONOCULAR) && (mnMatchesInliers < 300 && mnMatchesInliers > 0);
     const bool c4 = (mSensor != System::MONOCULAR) && (mnMatchesInliers < 100 && mnMatchesInliers > 0);
     const bool c5 = (last_mnMatchesInliers / mnMatchesInliers) > 2; // inlier decrease fast
-    // end add LK-RGBD
+    // end add LK-RGBD-Stereo
 
     // original ORBSLAM2 Criterion
     // if ((c1a || c1b || c1c) && c2)
 
-    // add LK-RGBD
+    // add LK-RGBD-Stereo
     // c1a: long time no keyframe inserted
     // c1b: keyframe interval larger than threshold AND LocalMapper is available
     // c3: the number of matched inlier in frame-to-frame (0, 300)
@@ -1811,7 +1906,7 @@ namespace ORB_SLAM2
           // tracking插入关键帧不是直接插入，而且先插入到mlNewKeyFrames中，
           // 然后localmapper再逐个pop出来插入到mspKeyFrames
 
-          // add LK-RGBD
+          // add LK-RGBD-Stereo
           // if (mpLocalMapper->KeyframesInQueue() < 3)
           if (mpLocalMapper->KeyframesInQueue() < 2)
             //队列中的关键帧数目不是很多,可以插入

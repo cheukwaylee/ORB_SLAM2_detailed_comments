@@ -74,7 +74,7 @@ namespace ORB_SLAM2
          */
         cv::Mat DrawFrame();
         cv::Mat DrawDepth(); // add LK-RGBD
-        cv::Mat mLK;         // add LK-RGBD
+        cv::Mat mLK;         // add LK-RGBD-Stereo
 
     protected:
         /**

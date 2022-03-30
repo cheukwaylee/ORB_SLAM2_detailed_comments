@@ -86,7 +86,7 @@ namespace ORB_SLAM2
          */
         Frame(const Frame &frame);
 
-        // add LK-RGBD
+        // add LK-RGBD-Stereo for LK tracking simple frame
         Frame(bool idPlus);
 
         // Constructor for stereo cameras.  为双目相机准备的构造函数

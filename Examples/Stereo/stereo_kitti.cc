@@ -39,12 +39,17 @@ void LoadImages(const string &strPathToSequence,
 
 int main(int argc, char **argv)
 {
-    if (argc != 4)
-    {
-        cerr << endl
-             << "Usage: ./stereo_kitti path_to_vocabulary path_to_settings path_to_sequence" << endl;
-        return 1;
-    }
+    // if (argc != 4)
+    // {
+    //     cerr << endl
+    //          << "Usage: ./stereo_kitti path_to_vocabulary path_to_settings path_to_sequence" << endl;
+    //     return 1;
+    // }
+
+    // ../Examples/Stereo/stereo_kitti ../Vocabulary/ORBvoc.txt ../Examples/Stereo/KITTI03.yaml /mnt/hgfs/code/data_odometry_gray/00/
+    argv[1] = "../Vocabulary/ORBvoc.txt";
+    argv[2] = "../Examples/Stereo/KITTI00-02.yaml";
+    argv[3] = "/mnt/hgfs/code/data_odometry_gray/00/";
 
     // Retrieve paths to images
     vector<string> vstrImageLeft;
@@ -73,6 +78,8 @@ int main(int argc, char **argv)
     cv::Mat imLeft, imRight;
     for (int ni = 0; ni < nImages; ni++)
     {
+        cout << endl
+             << "start # " << ni << endl;
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni], CV_LOAD_IMAGE_UNCHANGED);
         imRight = cv::imread(vstrImageRight[ni], CV_LOAD_IMAGE_UNCHANGED);
@@ -102,6 +109,8 @@ int main(int argc, char **argv)
 #endif
 
         double ttrack = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
+
+        cout << "end # " << ni << " used time " << ttrack << endl;
 
         vTimesTrack[ni] = ttrack;
 

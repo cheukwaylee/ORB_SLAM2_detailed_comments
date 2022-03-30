@@ -397,7 +397,7 @@ namespace ORB_SLAM2
     public:
         /// MapPoints associated to keypoints
         std::vector<MapPoint *> mvpMapPoints;
-        // end add LK-RGBD
+        // end add LK-RGBD-Stereo
 
     protected:
         // BoW

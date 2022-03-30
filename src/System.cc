@@ -191,10 +191,9 @@ namespace ORB_SLAM2
 
   //双目输入时的追踪器接口
   cv::Mat System::TrackStereo(
-      const cv::Mat &imLeft,  //左侧图像
-      const cv::Mat &imRight, //右侧图像
-      const double &timestamp //时间戳
-  )
+      const cv::Mat &imLeft,   //左侧图像
+      const cv::Mat &imRight,  //右侧图像
+      const double &timestamp) //时间戳
   {
     //检查输入数据类型是否合法
     if (mSensor != STEREO)

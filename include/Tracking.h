@@ -438,7 +438,7 @@ namespace ORB_SLAM2
         // Current matches in frame
         ///当前帧中的进行匹配的内点,将会被不同的函数反复使用
         int mnMatchesInliers;
-        int last_mnMatchesInliers; // add LK-RGBD
+        int last_mnMatchesInliers; // add LK-RGBD-Stereo
 
         // Last Frame, KeyFrame and Relocalization Info
         //  上一关键帧

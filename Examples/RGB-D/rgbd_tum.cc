@@ -53,15 +53,18 @@ void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageF
 
 int main(int argc, char **argv)
 {
-    if (argc != 5)
-    {
-        cerr
-            << endl
-            << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings(yaml) path_to_sequence path_to_association"
-            << endl;
-        return 1;
-    }
-
+    // if (argc != 5)
+    // {
+    //     cerr
+    //         << endl
+    //         << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings(yaml) path_to_sequence path_to_association"
+    //         << endl;
+    //     return 1;
+    // }
+    argv[1] = "../Vocabulary/ORBvoc.txt";
+    argv[2] = "../Examples/RGB-D/TUM1.yaml";
+    argv[3] = "/mnt/hgfs/code/data_tum_rgbd/rgbd_dataset_freiburg1_xyz/";
+    argv[4] = "../Examples/RGB-D/associations/fr1_xyz.txt";
     /*
 
     ../Examples/rgbd_tum

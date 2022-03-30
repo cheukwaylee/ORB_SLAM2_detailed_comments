@@ -234,7 +234,9 @@ namespace ORB_SLAM2
         unique_lock<mutex> lock(mMutex);
         //拷贝跟踪线程的图像
         pTracker->mImGray.copyTo(mIm);
-        pTracker->mImDepth.copyTo(mDepth); // add LK-RGBD
+        // pTracker->mImDepth.copyTo(mDepth); // add LK-RGBD
+        // add LK-Stereo
+
         //拷贝跟踪线程的特征点
         mvCurrentKeys = pTracker->mCurrentFrame.mvKeys;
         N = mvCurrentKeys.size();

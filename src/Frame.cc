@@ -100,7 +100,7 @@ namespace ORB_SLAM2
             SetPose(frame.mTcw);
     }
 
-    // add LK-RGBD
+    // add LK-RGBD-Stereo for LK tracking simple frame
     Frame::Frame(bool idPlus)
     {
         if (idPlus)
