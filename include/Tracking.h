@@ -194,6 +194,7 @@ namespace ORB_SLAM2
         // Current Frame
         ///追踪线程中有一个当前帧
         Frame mCurrentFrame;
+        
         ///> 还有当前帧的灰度图像 // 提问,那么在双目输入和在RGBD输入的时候呢?
         ///>             // ANSWER 在双目输入和在RGBD输入时，为左侧图像的灰度图
         cv::Mat mImGray;

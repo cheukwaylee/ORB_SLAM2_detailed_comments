@@ -1869,10 +1869,12 @@ namespace ORB_SLAM2
     //! debug: Floating point exception
     if (mnMatchesInliers == 0)
       mnMatchesInliers = 1;
-    // the greater threshold, the more strictly, so more LK
+    // the greater threshold, the more strictly, so less LK
     const bool c3 = (mSensor != System::MONOCULAR) && (mnMatchesInliers < 300 && mnMatchesInliers > 0);
     const bool c4 = (mSensor != System::MONOCULAR) && (mnMatchesInliers < 100 && mnMatchesInliers > 0);
+    // the smaller threshold, the more strictly, so less LK
     const bool c5 = (last_mnMatchesInliers / mnMatchesInliers) > 2; // inlier decrease fast
+    cout << "last, mnMatchesInliers " << last_mnMatchesInliers << " , " << mnMatchesInliers << endl;
     // end add LK-RGBD-Stereo
 
     // original ORBSLAM2 Criterion
@@ -1881,9 +1883,9 @@ namespace ORB_SLAM2
     // add LK-RGBD-Stereo
     // c1a: long time no keyframe inserted
     // c1b: keyframe interval larger than threshold AND LocalMapper is available
-    // c3: the number of matched inlier in frame-to-frame (0, 300)
-    // c4: the number of matched inlier in frame-to-frame (0, 100)
-    // c5: the number of matched inlier in frame-to-frame decrease too fast
+    // c3: the number of matched inlier in frame-to-frame default==(0, 300)
+    // c4: the number of matched inlier in frame-to-frame default==(0, 100)
+    // c5: the number of matched inlier in frame-to-frame decrease too fast default==2
     if (((c1a || c1b) && c3) || (c4 || c5))
     {
       // If the mapping accepts keyframes, insert keyframe.
