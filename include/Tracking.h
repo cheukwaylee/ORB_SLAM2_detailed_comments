@@ -198,6 +198,7 @@ namespace ORB_SLAM2
         ///> 还有当前帧的灰度图像 // 提问,那么在双目输入和在RGBD输入的时候呢?
         ///>             // ANSWER 在双目输入和在RGBD输入时，为左侧图像的灰度图
         cv::Mat mImGray;
+        cv::Mat mLastImGray; // add LK-Stereo
         cv::Mat mImDepth; // add LK-RGBD
 
         // Initialization Variables (Monocular)

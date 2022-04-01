@@ -20,10 +20,10 @@ using namespace ORB_SLAM2;
 #include <opencv2/video/tracking.hpp>
 // using namespace cv;
 
-vector<cv::Point2f> keypoints;
-vector<cv::Point2f> prev_keypoints;
+vector<cv::Point2f> keypoints; // LK successful tracked result in last call
+// vector<cv::Point2f> prev_keypoints; // keypints are about to be tracked
 vector<cv::Point3f> mappointInCurrentFrame;
-cv::Mat last_color; // last imgage
+// cv::Mat last_color; // last imgage
 
 /**
  * 暂未解决 无法把所有帧的位姿加入CameraTrajectory.txt的问题
@@ -34,12 +34,13 @@ cv::Mat last_color; // last imgage
  * 非关键帧的情况下，使用光流法跟踪关键帧的特征点,使用 PNP_RANSAC 来计算相机位姿
  *
  * @param[in] lastKeyFrame      pointer to last keyframe
- * @param[in] color         current frame RGB imgage
- * @param[in] lastColorIsKeyFrame   if last frame is keyframe
+ * @param[in] lastImGray       last frame gray imgage
+ * @param[in] ImGray         current frame gray imgage
+ * @param[in] lastImGrayIsKeyFrame  if last frame is keyframe
  * @param[in] K
  * @param[in] DistCoef
  * @param[out] Tcw          current frame pose
- * @param[out] mnMatchesInliers     the number of current frame Matches Inliers
+ * @param[out] nMatchesInliers     the number of current frame Matches Inliers
  *
  * @return cv::Mat img_show; //返回值是rgb图片，用于显示光流跟踪到的特征点
  *
@@ -48,13 +49,17 @@ cv::Mat last_color; // last imgage
  * Step 3 ：
  *
  */
+
+//! bug: "nMatchesInliers" need to be set to zero, if cannot be tracked?!!!!
+
 cv::Mat computeMtcwUseLK(
     KeyFrame *lastKeyFrame,
-    cv::Mat color,
-    bool lastColorIsKeyFrame,
+    cv::Mat lastImGray,
+    cv::Mat ImGray,
+    bool lastImGrayIsKeyFrame,
     cv::Mat K, cv::Mat DistCoef,
     cv::Mat &Tcw,
-    int &mnMatchesInliers)
+    int &nMatchesInliers)
 {
     // cout << "   entering LK.h" << endl;
 
@@ -65,37 +70,37 @@ cv::Mat computeMtcwUseLK(
 
     // first time to call this function, last RGB image is not existed,
     // so LK cannot work, here can be regarded as LK initialization
-    if (last_color.empty())
+    if (lastImGray.empty())
     {
-        cout << "       filling last color fist time" << endl;
-        last_color = color;
+        // cout << "       filling last color fist time" << endl;
+        // last_color = color;
 
-        // Tcw, mnMatchesInliers not modified, and return directly
+        // Tcw, nMatchesInliers not modified, and return directly
         //! bug: if LK is not initied,
-        //! the current frame should be tracking by original ORBSLAM
-        mnMatchesInliers = -1;
+        //! the current frame should be tracked by original ORBSLAM2
+        nMatchesInliers = 0;
         return cv::Mat();
     }
 
-    // 上一帧是关键帧的情况
-    // use last keyframe's mappoints as current frame's mappoints
-    // use last keyframe's keypoints as current frame's keypoints
-    if (lastColorIsKeyFrame || keypoints.empty())
+    // 上一帧是关键帧 || 没有可以被跟踪的keypoint(可能是初始化？)
+    // reset "keypoints" and "mappointInCurrentFrame"
+    // use last keyframe's keypoints/mappoints as current frame's keypoints/mappoints
+    if (lastImGrayIsKeyFrame || keypoints.empty())
     {
-        // cout << lastKeyFrame->mvKeysUn.size() << endl;
         keypoints.clear();
         mappointInCurrentFrame.clear();
 
-        // copy map points from last keyframe
+        // copy mappoints from last keyframe
         // ! make KeyFrame member mvpMapPoints public
         for (int i = 0; i < lastKeyFrame->mvpMapPoints.size(); i++)
         {
-            //  map point existing && its observation time not too few
+            //  mappoint existing && its observation time not too few
             if (lastKeyFrame->mvpMapPoints[i] &&
                 lastKeyFrame->mvpMapPoints[i]->Observations() > obsPlus) //? if the program died here, try to change 1 to 0
             {
-                keypoints.push_back(lastKeyFrame->mvKeysUn[i].pt); // LK-RGBD
-                // keypoints.push_back(lastKeyFrame->mvKeys[i].pt); // LK-Stereo
+                //? keypoints here must come from mappoints?
+                // keypoints.push_back(lastKeyFrame->mvKeysUn[i].pt); // LK-RGBD
+                keypoints.push_back(lastKeyFrame->mvKeys[i].pt); // LK-Stereo
 
                 cv::Point3f pt3f;
                 cv::Mat temp;
@@ -110,10 +115,10 @@ cv::Mat computeMtcwUseLK(
         }
     }
 
-    // LK tracking result
+    // to store LK tracking result
     vector<cv::Point2f> next_keypoints;
-
-    // copy keypoints to prev_keypoints, prev_keypoints = keypoints
+    // deep copy of keypoints, keypoints here is the set of tracked points successfully
+    vector<cv::Point2f> prev_keypoints;
     prev_keypoints.clear();
     for (auto kp : keypoints)
     {
@@ -122,53 +127,56 @@ cv::Mat computeMtcwUseLK(
 
     vector<unsigned char> status; //判断该点是否跟踪失败
     vector<float> error;
-    cv::Mat last_gray, gray; // LK光流法用于跟踪特征点的两帧
 
-    //! BUG??
-    //! why not check before?
-    //! CV_BGR2GRAY or RGB?
-    bool mbRGB = true; // TODO
-    // cv::imshow("last_color", last_color);
-    // cv::imshow("color", color);
-    // cvtColor(last_color, last_gray, CV_BGR2GRAY);
-    if (last_color.channels() == 1)
-    {
-        last_gray = last_color;
-    }
-    else if (last_color.channels() == 3)
-    {
-        if (mbRGB)
-            cvtColor(last_color, last_gray, CV_RGB2GRAY);
-        else
-            cvtColor(last_color, last_gray, CV_BGR2GRAY);
-    }
-    else if (last_color.channels() == 4)
-    {
-        if (mbRGB)
-            cvtColor(last_color, last_gray, CV_RGBA2GRAY);
-        else
-            cvtColor(last_color, last_gray, CV_BGRA2GRAY);
-    }
-
-    // cvtColor(color, gray, CV_BGR2GRAY);
-    if (last_color.channels() == 1)
-    {
-        gray = color;
-    }
-    if (color.channels() == 3)
-    {
-        if (mbRGB)
-            cvtColor(color, gray, CV_RGB2GRAY);
-        else
-            cvtColor(color, gray, CV_BGR2GRAY);
-    }
-    else if (color.channels() == 4)
-    {
-        if (mbRGB)
-            cvtColor(color, gray, CV_RGBA2GRAY);
-        else
-            cvtColor(color, gray, CV_BGRA2GRAY);
-    }
+    // cv::Mat last_gray, gray; // LK光流法用于跟踪特征点的两帧
+    // {
+    //     //! BUG??
+    //     //! why not check before?
+    //     //! CV_BGR2GRAY or RGB?
+    //     bool mbRGB = true; // TODO
+    //     // cv::imshow("last_color", last_color);
+    //     // cv::imshow("color", color);
+    //
+    //     // cvtColor(last_color, last_gray, CV_BGR2GRAY);
+    //     if (last_color.channels() == 1)
+    //     {
+    //         last_gray = last_color;
+    //     }
+    //     else if (last_color.channels() == 3)
+    //     {
+    //         if (mbRGB)
+    //             cvtColor(last_color, last_gray, CV_RGB2GRAY);
+    //         else
+    //             cvtColor(last_color, last_gray, CV_BGR2GRAY);
+    //     }
+    //     else if (last_color.channels() == 4)
+    //     {
+    //         if (mbRGB)
+    //             cvtColor(last_color, last_gray, CV_RGBA2GRAY);
+    //         else
+    //             cvtColor(last_color, last_gray, CV_BGRA2GRAY);
+    //     }
+    //
+    //     // cvtColor(color, gray, CV_BGR2GRAY);
+    //     if (last_color.channels() == 1)
+    //     {
+    //         gray = color;
+    //     }
+    //     if (color.channels() == 3)
+    //     {
+    //         if (mbRGB)
+    //             cvtColor(color, gray, CV_RGB2GRAY);
+    //         else
+    //             cvtColor(color, gray, CV_BGR2GRAY);
+    //     }
+    //     else if (color.channels() == 4)
+    //     {
+    //         if (mbRGB)
+    //             cvtColor(color, gray, CV_RGBA2GRAY);
+    //         else
+    //             cvtColor(color, gray, CV_BGRA2GRAY);
+    //     }
+    // }
 
     //计算光流
     // cout << "       calling calcOpticalFlowPyrLK" << endl;
@@ -184,8 +192,6 @@ cv::Mat computeMtcwUseLK(
      *              金字塔窗口大小，金字塔层数，
      *              终止条件（迭代次数+最小步长），
      *              使用图2关键点存放容器中的初值)
-     */
-    /*
     cv::calcOpticalFlowPyrLK(
                 current_frame_->left_img_, current_frame_->right_img_,
                 kps_left, kps_right,
@@ -195,8 +201,8 @@ cv::Mat computeMtcwUseLK(
                 cv::OPTFLOW_USE_INITIAL_FLOW);
     */
     cv::calcOpticalFlowPyrLK(
-        last_gray,      // [in] last frame image (converted to gray)
-        gray,           // [in] current frame image (converted to gray)
+        lastImGray,     // [in] last frame image (converted to gray)
+        ImGray,         // [in] current frame image (converted to gray)
         prev_keypoints, // [in]
         next_keypoints, // [in as init & out], no init guess here
         status, error);
@@ -211,6 +217,8 @@ cv::Mat computeMtcwUseLK(
         {
             // remove lost
             iter = keypoints.erase(iter);
+            // An iterator pointing to the new location of the element
+            // that followed the last element erased by the function call.
             continue;
         }
 
@@ -240,14 +248,17 @@ cv::Mat computeMtcwUseLK(
     cv::Mat R_vector, R, T;
     vector<int> ransacInlier;
 
-    // all this three container are required NON-empty
-    if (!(mappointInCurrentFrame.empty() || keypoints.empty() || DistCoef.empty()))
+    // all this containers are required NON-empty
+    if (!(mappointInCurrentFrame.empty() || keypoints.empty() || DistCoef.empty() || K.empty()))
     {
         // cout << "   the number of mappint in current frame " << mappointInCurrentFrame.size() << endl;
 
         if (keypoints.size() < 20)
         {
             cout << "Optical flow need more points" << endl;
+            //! bug: after LK tracking, the number of tracked keypoints is not enough
+            //! the current frame should be tracked by original ORBSLAM2
+            nMatchesInliers = 0;
             return cv::Mat();
         }
 
@@ -267,17 +278,17 @@ cv::Mat computeMtcwUseLK(
 
         // Converts a rotation matrix to a rotation vector or vice versa.
         cv::Rodrigues(R_vector, R);
-        // SE(3) [R,t; 0,1]
+
         cv::Mat_<double> Rt = (cv::Mat_<double>(4, 4) << R.at<double>(0, 0), R.at<double>(0, 1), R.at<double>(0, 2), T.at<double>(0),
                                R.at<double>(1, 0), R.at<double>(1, 1), R.at<double>(1, 2), T.at<double>(1),
                                R.at<double>(2, 0), R.at<double>(2, 1), R.at<double>(2, 2), T.at<double>(2),
-                               0, 0, 0, 1);
+                               0, 0, 0, 1); // SE(3) [R,t; 0,1]
         cv::Mat Rt_float;
         Rt.convertTo(Rt_float, CV_32FC1);
 
         // TODO consider move forward right after PNP // init version in the buttom
         // [out to Tracking.cc] PNP inlier
-        mnMatchesInliers = ransacInlier.size();
+        nMatchesInliers = ransacInlier.size();
         // cout << "PNP inlier: " << ransacInlier.size() << endl;
 
         // [out to Tracking.cc] current frame pose estimation result
@@ -287,13 +298,16 @@ cv::Mat computeMtcwUseLK(
     if (keypoints.size() == 0)
     {
         cout << "LK -- all keypoints are lost." << endl;
+        //! bug: after LK tracking, the tracked keypoints is empty
+        //! the current frame should be tracked by original ORBSLAM2
+        nMatchesInliers = 0;
         return cv::Mat();
     }
 
     /** 画出 keypoints*/
-    cv::Mat img_show = color.clone();
+    cv::Mat img_show = ImGray.clone();
     if (img_show.channels() < 3)
-        cvtColor(img_show, img_show, CV_GRAY2BGR);
+        cvtColor(img_show, img_show, CV_GRAY2RGB);
 
     int point = 0;
     for (auto kp : keypoints)
@@ -309,9 +323,6 @@ cv::Mat computeMtcwUseLK(
         }
         point++;
     }
-
-    // save last frame RGB image
-    last_color = color;
 
     return img_show; //返回值是rgb图片，用于显示光流跟踪到的特征点
 }

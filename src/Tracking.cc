@@ -289,7 +289,8 @@ namespace ORB_SLAM2
 
       mLKimg = computeMtcwUseLK(
           mpLastKeyFrame,
-          imRectRight,                                           // [in] current frame RGB imgage
+          mLastImGray,
+          mImGray,                                               // [in] current frame RGB imgage
           (mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId) == 1, // [in] if last frame is keyframe
           mK, mDistCoef,
           Tcw,               // [out] current frame pose
@@ -297,7 +298,8 @@ namespace ORB_SLAM2
       // mLKimg = flow(mpLastKeyFrame, imRGB,  mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId ==1, mK, mDistCoef, mTcw);
 
       mpFrameDrawer->mLK = mLKimg;
-      mCurrentFrame.mTcw = Tcw;
+      // mCurrentFrame.mTcw = Tcw;
+      mCurrentFrame.SetPose(Tcw);
 #ifdef COMPILEDWITHC14
       std::chrono::steady_clock::time_point t2_LK = std::chrono::steady_clock::now();
 #else
@@ -312,8 +314,13 @@ namespace ORB_SLAM2
       mNeedNewKF = NeedNewKeyFrame();
     }
 
+    //! debug: update track thread state
+    if (!mNeedNewKF)
+    {
+      mState = OK;
+    }
     // same as the case without introducing LK
-    if (mNeedNewKF)
+    else
     {
 #ifdef COMPILEDWITHC14
       std::chrono::steady_clock::time_point t1_ORB = std::chrono::steady_clock::now();
@@ -348,6 +355,8 @@ namespace ORB_SLAM2
     // cout << "orbslam mTcw:" << endl
     //      << mCurrentFrame.mTcw << endl;
     // count++;
+
+    mLastImGray = mImGray; // add LK-Stereo
 
     //返回位姿
     // cout << "current frame pose " << endl
@@ -414,7 +423,8 @@ namespace ORB_SLAM2
 
       mLKimg = computeMtcwUseLK(
           mpLastKeyFrame,
-          imRGB,                                                 // [in] current frame RGB imgage
+          mLastImGray,
+          mImGray,                                               // [in] current frame RGB imgage
           (mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId) == 1, // [in] if last frame is keyframe
           mK, mDistCoef,
           Tcw,               // [out] current frame pose
@@ -472,6 +482,8 @@ namespace ORB_SLAM2
     // cout << "orbslam mTcw:" << endl
     //      << mCurrentFrame.mTcw << endl;
     // count++;
+
+    mLastImGray = mImGray; // add LK-Stereo
 
     //返回当前帧的位姿
     // cout << "current frame pose " << endl
@@ -610,6 +622,8 @@ namespace ORB_SLAM2
         // 是否正常跟踪
         if (mState == OK)
         {
+          // CreateNewKeyFrame(); // add LK-RGBD-Stereo
+
           // Local Mapping might have changed some MapPoints tracked in last frame
           // Step 2.1 检查并更新上一帧被替换的MapPoints
           // 局部建图线程则可能会对原有的地图点进行替换.在这里进行检查
@@ -848,11 +862,13 @@ namespace ORB_SLAM2
         // 不能够直接执行这个是因为其中存储的都是指针（要释放容器里面的地址）,上一步的操作是为了避免内存泄露
         mlpTemporalPoints.clear(); // clear the whole list
 
-        // Check if we need to insert a new keyframe
-        // Step 8：检测并插入关键帧，对于双目或RGB-D会产生新的地图点
-        // 若跟踪成功,根据条件判定是否产生关键帧
+        // add LK-RGBD-Stereo
+        // // Check if we need to insert a new keyframe
+        // // Step 8：检测并插入关键帧，对于双目或RGB-D会产生新的地图点
+        // // 若跟踪成功,根据条件判定是否产生关键帧
         if (NeedNewKeyFrame())
           CreateNewKeyFrame();
+        // end add LK-RGBD-Stereo
 
         // We allow points with high innovation (considered outliers by the Huber
         // Function) pass to the new keyframe, so that bundle adjustment will
@@ -1739,12 +1755,12 @@ namespace ORB_SLAM2
       return true;
     }
 
-    //! bug: if LK is not initied,
-    //! the current frame should be tracking by original ORBSLAM
-    if (mnMatchesInliers == -1)
-    {
-      return true;
-    }
+    // //! bug: if LK is not initied,
+    // //! the current frame should be tracking by original ORBSLAM
+    // if (mnMatchesInliers == -1)
+    // {
+    //   return true;
+    // }
 
     // Step 1：纯VO模式下不插入关键帧
     if (mbOnlyTracking)
