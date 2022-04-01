@@ -271,13 +271,13 @@ namespace ORB_SLAM2
     }
 
     // Step 2 ：构造Frame对象
-    // add LK-Stereo: depends on whether need new keyframe or not
+    // add LK-Stereo: LK always enable, and if it failed, try original ORB
 
     // Step 3 ：跟踪
-    mNeedNewKF = NeedNewKeyFrame();
-    // mNeedNewKF = true;
-    if (!mNeedNewKF)
+    bool bLKOKc0;
+    if (mpLastKeyFrame)
     {
+      bLKOKc0 = true;
 #ifdef COMPILEDWITHC14
       std::chrono::steady_clock::time_point t1_LK = std::chrono::steady_clock::now();
 #else
@@ -285,7 +285,7 @@ namespace ORB_SLAM2
 #endif
       mCurrentFrame = Frame(true);
       cv::Mat Tcw;
-      last_mnMatchesInliers = mnMatchesInliers;
+      mnLastTrackedInliersLK = mnTrackedInliersLK;
 
       mLKimg = computeMtcwUseLK(
           mpLastKeyFrame,
@@ -293,13 +293,22 @@ namespace ORB_SLAM2
           mImGray,                                               // [in] current frame RGB imgage
           (mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId) == 1, // [in] if last frame is keyframe
           mK, mDistCoef,
-          Tcw,               // [out] current frame pose
-          mnMatchesInliers); // [out] the number of current frame Matches Inliers
+          Tcw,                 // [out] current frame pose
+          mnTrackedInliersLK); // [out] the number of current frame Matches Inliers
       // mLKimg = flow(mpLastKeyFrame, imRGB,  mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId ==1, mK, mDistCoef, mTcw);
 
-      mpFrameDrawer->mLK = mLKimg;
-      // mCurrentFrame.mTcw = Tcw;
-      mCurrentFrame.SetPose(Tcw);
+      //! debug: mLKimg could be empty, when exception in LK
+      if (mnTrackedInliersLK < 0)
+      {
+        mnTrackedInliersLK = 0;
+      }
+      else
+      {
+        mpFrameDrawer->mLK = mLKimg;
+        // mCurrentFrame.mTcw = Tcw;
+        mCurrentFrame.SetPose(Tcw);
+      }
+
 #ifdef COMPILEDWITHC14
       std::chrono::steady_clock::time_point t2_LK = std::chrono::steady_clock::now();
 #else
@@ -309,19 +318,33 @@ namespace ORB_SLAM2
            << chrono::duration_cast<std::chrono::duration<double>>(t2_LK - t1_LK).count()
            << " us" << endl;
       mpFrameDrawer->Update(this);
-
-      // no need keyframe before, but LK tracking failed, so need keyframe!
-      mNeedNewKF = NeedNewKeyFrame();
+    }
+    else
+    {
+      bLKOKc0 = false;
     }
 
+    // add LK-RGBD-Stereo
+    cout << "last, mnTrackedInliersLK " << mnLastTrackedInliersLK << " , " << mnTrackedInliersLK << endl;
+    //! debug: Floating point exception
+    if (mnTrackedInliersLK == 0)
+      mnTrackedInliersLK = 1;
+    // LK tracking result
+    // the greater threshold, // 200
+    const bool bLKOKc1 = (mnTrackedInliersLK > 200);
+    // the smaller threshold, the more strictly, so less consider LK OK // 2.0f
+    const bool bLKOKc2 = ((mnLastTrackedInliersLK / mnTrackedInliersLK) < 2.0f);
+    const bool bLKOK = bLKOKc0 && bLKOKc1 && bLKOKc2;
+
     //! debug: update track thread state
-    if (!mNeedNewKF)
+    if (bLKOK)
     {
       mState = OK;
     }
-    // same as the case without introducing LK
+    // same as the case without introducing LK, i.e. original ORBSLAM2
     else
     {
+      mnORBTimes++;
 #ifdef COMPILEDWITHC14
       std::chrono::steady_clock::time_point t1_ORB = std::chrono::steady_clock::now();
 #else
@@ -358,6 +381,7 @@ namespace ORB_SLAM2
 
     mLastImGray = mImGray; // add LK-Stereo
 
+    cout << "Lost, ORB times " << mnLostTimes << " , " << mnORBTimes << endl;
     //返回位姿
     // cout << "current frame pose " << endl
     //      << mCurrentFrame.mTcw << endl;
@@ -622,8 +646,6 @@ namespace ORB_SLAM2
         // 是否正常跟踪
         if (mState == OK)
         {
-          // CreateNewKeyFrame(); // add LK-RGBD-Stereo
-
           // Local Mapping might have changed some MapPoints tracked in last frame
           // Step 2.1 检查并更新上一帧被替换的MapPoints
           // 局部建图线程则可能会对原有的地图点进行替换.在这里进行检查
@@ -795,8 +817,10 @@ namespace ORB_SLAM2
       if (bOK)
         mState = OK;
       else
+      {
         mState = LOST;
-
+        mnLostTimes++;
+      }
       // Step 4：更新显示线程中的图像、特征点、地图点等信息
       mpFrameDrawer->Update(this);
       mpFrameDrawer->mLK = mLKimg; // add LK-RGBD-Stereo
@@ -862,13 +886,11 @@ namespace ORB_SLAM2
         // 不能够直接执行这个是因为其中存储的都是指针（要释放容器里面的地址）,上一步的操作是为了避免内存泄露
         mlpTemporalPoints.clear(); // clear the whole list
 
-        // add LK-RGBD-Stereo
         // // Check if we need to insert a new keyframe
         // // Step 8：检测并插入关键帧，对于双目或RGB-D会产生新的地图点
         // // 若跟踪成功,根据条件判定是否产生关键帧
         if (NeedNewKeyFrame())
           CreateNewKeyFrame();
-        // end add LK-RGBD-Stereo
 
         // We allow points with high innovation (considered outliers by the Huber
         // Function) pass to the new keyframe, so that bundle adjustment will
@@ -1748,12 +1770,12 @@ namespace ORB_SLAM2
   bool Tracking::NeedNewKeyFrame()
   {
     // add LK-RGBD-Stereo
-    static int frameCount = 0;
-    if (frameCount < 3)
-    {
-      frameCount++;
-      return true;
-    }
+    // static int frameCount = 0;
+    // if (frameCount < 3)
+    // {
+    //   frameCount++;
+    //   return true;
+    // }
 
     // //! bug: if LK is not initied,
     // //! the current frame should be tracking by original ORBSLAM
@@ -1782,8 +1804,8 @@ namespace ORB_SLAM2
     if ((mCurrentFrame.mnId - mnLastRelocFrameId < mMaxFrames) && (nKFs > mMaxFrames))
       return false;
 
-    /*
-// add LK-RGBD-Stereo
+    //
+    // add LK-RGBD-Stereo
 
     // Tracked MapPoints in the reference keyframe
     // Step 4：得到参考关键帧跟踪到的地图点数量
@@ -1797,15 +1819,15 @@ namespace ORB_SLAM2
     // 参考关键帧的地图点中观测的数目>= nMinObs 的地图点数目
     int nRefMatches = mpReferenceKF->TrackedMapPoints(nMinObs);
 
-// end add LK-RGBD-Stereo
-    */
+    // end add LK-RGBD-Stereo
+    //
 
     // Local Mapping accept keyframes?
     // Step 5：查询局部地图线程是否繁忙，当前能否接受新的关键帧
     bool bLocalMappingIdle = mpLocalMapper->AcceptKeyFrames();
 
-    /*
-// add LK-RGBD-Stereo
+    //
+    // add LK-RGBD-Stereo
 
     // Check how many "close" points are being tracked and how many could be potentially created.
     // Step 6：对于双目或RGBD摄像头，统计成功跟踪的近点的数量：
@@ -1848,8 +1870,8 @@ namespace ORB_SLAM2
     if (mSensor == System::MONOCULAR)
       thRefRatio = 0.9f;
 
-// end add LK-RGBD-Stereo
-    */
+    // end add LK-RGBD-Stereo
+    //
 
     // Condition 1a: More than "MaxFrames" have passed from last keyframe insertion
     // Step 7.2：很长时间没有插入关键帧，可以插入
@@ -1860,8 +1882,8 @@ namespace ORB_SLAM2
     const bool c1b = ((mCurrentFrame.mnId - mnLastKeyFrameId) >= mMinFrames &&
                       bLocalMappingIdle);
 
-    /*
-// add LK-RGBD-Stereo
+    //
+    // add LK-RGBD-Stereo
 
     // Condition 1c: tracking is weak
     // Step 7.4：在双目，RGB-D的情况下：当前帧跟踪到的点比参考关键帧的0.25倍还少，或者满足bNeedToInsertClose
@@ -1878,31 +1900,30 @@ namespace ORB_SLAM2
         ((mnMatchesInliers < nRefMatches * thRefRatio || bNeedToInsertClose) &&
          mnMatchesInliers > 15); // 跟踪到的内点太少：//?就是跟丢了吧？
 
-// end add LK-RGBD-Stereo
-    */
-
-    // add LK-RGBD-Stereo
-    //! debug: Floating point exception
-    if (mnMatchesInliers == 0)
-      mnMatchesInliers = 1;
-    // the greater threshold, the more strictly, so less LK
-    const bool c3 = (mSensor != System::MONOCULAR) && (mnMatchesInliers < 300 && mnMatchesInliers > 0);
-    const bool c4 = (mSensor != System::MONOCULAR) && (mnMatchesInliers < 100 && mnMatchesInliers > 0);
-    // the smaller threshold, the more strictly, so less LK
-    const bool c5 = (last_mnMatchesInliers / mnMatchesInliers) > 2; // inlier decrease fast
-    cout << "last, mnMatchesInliers " << last_mnMatchesInliers << " , " << mnMatchesInliers << endl;
     // end add LK-RGBD-Stereo
-
-    // original ORBSLAM2 Criterion
-    // if ((c1a || c1b || c1c) && c2)
+    //
 
     // add LK-RGBD-Stereo
-    // c1a: long time no keyframe inserted
-    // c1b: keyframe interval larger than threshold AND LocalMapper is available
-    // c3: the number of matched inlier in frame-to-frame default==(0, 300)
-    // c4: the number of matched inlier in frame-to-frame default==(0, 100)
-    // c5: the number of matched inlier in frame-to-frame decrease too fast default==2
-    if (((c1a || c1b) && c3) || (c4 || c5))
+    // //! debug: Floating point exception
+    // if (mnMatchesInliers == 0)
+    //   mnMatchesInliers = 1;
+    // // the greater threshold, the more strictly, so less LK
+    // const bool c3 = (mSensor != System::MONOCULAR) && (mnMatchesInliers < 300 && mnMatchesInliers > 0);
+    // const bool c4 = (mSensor != System::MONOCULAR) && (mnMatchesInliers < 100 && mnMatchesInliers > 0);
+    // // the smaller threshold, the more strictly, so less LK
+    // const bool c5 = (last_mnMatchesInliers / mnMatchesInliers) > 2; // inlier decrease fast
+    // cout << "last, mnMatchesInliers " << last_mnMatchesInliers << " , " << mnMatchesInliers << endl;
+    // end add LK-RGBD-Stereo
+    /** LK
+     * c1a: long time no keyframe inserted
+     * c1b: keyframe interval larger than threshold AND LocalMapper is available
+     * c3: the number of matched inlier in frame-to-frame default==(0, 300)
+     * c4: the number of matched inlier in frame-to-frame default==(0, 100)
+     * c5: the number of matched inlier in frame-to-frame decrease too fast default==2
+     */
+    // if (((c1a || c1b) && c3) || (c4 || c5)) // add LK-RGBD-Stereo
+
+    if ((c1a || c1b || c1c) && c2) // original ORBSLAM2 Criterion
     {
       // If the mapping accepts keyframes, insert keyframe.
       // Otherwise send a signal to interrupt BA
@@ -1924,9 +1945,8 @@ namespace ORB_SLAM2
           // tracking插入关键帧不是直接插入，而且先插入到mlNewKeyFrames中，
           // 然后localmapper再逐个pop出来插入到mspKeyFrames
 
-          // add LK-RGBD-Stereo
-          // if (mpLocalMapper->KeyframesInQueue() < 3)
-          if (mpLocalMapper->KeyframesInQueue() < 2)
+          if (mpLocalMapper->KeyframesInQueue() < 3) // original ORBSLAM2
+                                                     // if (mpLocalMapper->KeyframesInQueue() < 2) // add LK-RGBD-Stereo
             //队列中的关键帧数目不是很多,可以插入
             return true;
           else

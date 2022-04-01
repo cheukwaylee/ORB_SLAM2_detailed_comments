@@ -162,12 +162,12 @@ namespace ORB_SLAM2
         return imWithInfo;
     }
 
-    // add LK-RGBD
-    cv::Mat FrameDrawer::DrawDepth()
-    {
-        return mDepth;
-    }
-    // end add LK-RGBD
+    // // add LK-RGBD
+    // cv::Mat FrameDrawer::DrawDepth()
+    // {
+    //     return mDepth;
+    // }
+    // // end add LK-RGBD
 
     //绘制状态栏上的文本信息
     void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
@@ -235,7 +235,7 @@ namespace ORB_SLAM2
         //拷贝跟踪线程的图像
         pTracker->mImGray.copyTo(mIm);
         // pTracker->mImDepth.copyTo(mDepth); // add LK-RGBD
-        // add LK-Stereo
+        // 不知道对应的要写什么 add LK-Stereo
 
         //拷贝跟踪线程的特征点
         mvCurrentKeys = pTracker->mCurrentFrame.mvKeys;

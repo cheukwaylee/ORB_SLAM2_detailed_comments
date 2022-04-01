@@ -194,12 +194,12 @@ namespace ORB_SLAM2
         // Current Frame
         ///追踪线程中有一个当前帧
         Frame mCurrentFrame;
-        
+
         ///> 还有当前帧的灰度图像 // 提问,那么在双目输入和在RGBD输入的时候呢?
         ///>             // ANSWER 在双目输入和在RGBD输入时，为左侧图像的灰度图
         cv::Mat mImGray;
         cv::Mat mLastImGray; // add LK-Stereo
-        cv::Mat mImDepth; // add LK-RGBD
+        cv::Mat mImDepth;    // add LK-RGBD
 
         // Initialization Variables (Monocular)
         // 初始化时前两帧相关变量
@@ -234,6 +234,9 @@ namespace ORB_SLAM2
          * @brief 整个系统进行复位操作
          */
         void Reset();
+
+        int mnORBTimes;
+        int mnLostTimes;
 
     protected:
         // Main tracking function. It is independent of the input sensor.
@@ -440,7 +443,9 @@ namespace ORB_SLAM2
         // Current matches in frame
         ///当前帧中的进行匹配的内点,将会被不同的函数反复使用
         int mnMatchesInliers;
-        int last_mnMatchesInliers; // add LK-RGBD-Stereo
+        int last_mnMatchesInliers;  // add LK-RGBD
+        int mnTrackedInliersLK;     // add LK-Stereo
+        int mnLastTrackedInliersLK; // add LK-Stereo
 
         // Last Frame, KeyFrame and Relocalization Info
         //  上一关键帧

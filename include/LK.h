@@ -62,6 +62,8 @@ cv::Mat computeMtcwUseLK(
     int &nMatchesInliers)
 {
     // cout << "   entering LK.h" << endl;
+    // nMatchesInliers = -1;
+    // return cv::Mat();
 
     // observation time threshold
     int obsPlus = 0;
@@ -72,13 +74,13 @@ cv::Mat computeMtcwUseLK(
     // so LK cannot work, here can be regarded as LK initialization
     if (lastImGray.empty())
     {
-        // cout << "       filling last color fist time" << endl;
+        cout << "lastImGray is empty" << endl;
         // last_color = color;
 
         // Tcw, nMatchesInliers not modified, and return directly
         //! bug: if LK is not initied,
         //! the current frame should be tracked by original ORBSLAM2
-        nMatchesInliers = 0;
+        nMatchesInliers = -1;
         return cv::Mat();
     }
 
@@ -258,7 +260,7 @@ cv::Mat computeMtcwUseLK(
             cout << "Optical flow need more points" << endl;
             //! bug: after LK tracking, the number of tracked keypoints is not enough
             //! the current frame should be tracked by original ORBSLAM2
-            nMatchesInliers = 0;
+            nMatchesInliers = -1;
             return cv::Mat();
         }
 
@@ -300,7 +302,7 @@ cv::Mat computeMtcwUseLK(
         cout << "LK -- all keypoints are lost." << endl;
         //! bug: after LK tracking, the tracked keypoints is empty
         //! the current frame should be tracked by original ORBSLAM2
-        nMatchesInliers = 0;
+        nMatchesInliers = -1;
         return cv::Mat();
     }
 
@@ -324,6 +326,7 @@ cv::Mat computeMtcwUseLK(
         point++;
     }
 
+    // cout << "   leaving LK.h" << endl;
     return img_show; //返回值是rgb图片，用于显示光流跟踪到的特征点
 }
 

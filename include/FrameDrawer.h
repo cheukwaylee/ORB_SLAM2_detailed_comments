@@ -89,7 +89,7 @@ namespace ORB_SLAM2
         // Info of the frame to be drawn
         ///当前绘制的图像
         cv::Mat mIm;
-        cv::Mat mDepth; // add LK-RGBD
+        // cv::Mat mDepth; // add LK-RGBD
         ///当前帧中特征点的数目
         int N;
         ///当前帧中的特征点
