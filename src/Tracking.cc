@@ -275,7 +275,7 @@ namespace ORB_SLAM2
 
     // Step 3 ：跟踪
     bool bLKOKc0;
-    if (mpLastKeyFrame)
+    if ((mState == OK) && mpLastKeyFrame)
     {
       bLKOKc0 = true;
 #ifdef COMPILEDWITHC14
@@ -315,8 +315,7 @@ namespace ORB_SLAM2
       std::chrono::monotonic_clock::time_point t2_LK = std::chrono::monotonic_clock::now();
 #endif
       cout << "------ track LK optical flow  use time: "
-           << chrono::duration_cast<std::chrono::duration<double>>(t2_LK - t1_LK).count()
-           << " us" << endl;
+           << chrono::duration_cast<std::chrono::duration<double>>(t2_LK - t1_LK).count() << endl;
       mpFrameDrawer->Update(this);
     }
     else
@@ -339,7 +338,7 @@ namespace ORB_SLAM2
     //! debug: update track thread state
     if (bLKOK)
     {
-      mState = OK;
+      // mState = OK;
     }
     // same as the case without introducing LK, i.e. original ORBSLAM2
     else
@@ -369,8 +368,7 @@ namespace ORB_SLAM2
       std::chrono::monotonic_clock::time_point t2_ORB = std::chrono::monotonic_clock::now();
 #endif
       cout << "****** KeyFrame track feature use time: "
-           << chrono::duration_cast<std::chrono::duration<double>>(t2_ORB - t1_ORB).count()
-           << " us" << endl;
+           << chrono::duration_cast<std::chrono::duration<double>>(t2_ORB - t1_ORB).count() << endl;
     }
 
     // cout << "currentFrame and pose: " << mCurrentFrame.mnId << endl;
@@ -463,8 +461,7 @@ namespace ORB_SLAM2
       std::chrono::monotonic_clock::time_point t2_LK = std::chrono::monotonic_clock::now();
 #endif
       cout << "------ track LK optical flow  use time: "
-           << chrono::duration_cast<std::chrono::duration<double>>(t2_LK - t1_LK).count()
-           << " us" << endl;
+           << chrono::duration_cast<std::chrono::duration<double>>(t2_LK - t1_LK).count() << endl;
       mpFrameDrawer->Update(this);
 
       // no need keyframe before, but LK tracking failed, so need keyframe!
@@ -497,8 +494,7 @@ namespace ORB_SLAM2
       std::chrono::monotonic_clock::time_point t2_ORB = std::chrono::monotonic_clock::now();
 #endif
       cout << "****** KeyFrame track feature use time: "
-           << chrono::duration_cast<std::chrono::duration<double>>(t2_ORB - t1_ORB).count()
-           << " us" << endl;
+           << chrono::duration_cast<std::chrono::duration<double>>(t2_ORB - t1_ORB).count() << endl;
     }
 
     // cout << "currentFrame and pose: " << mCurrentFrame.mnId << endl;
