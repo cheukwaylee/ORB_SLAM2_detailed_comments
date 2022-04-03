@@ -275,7 +275,8 @@ namespace ORB_SLAM2
 
     // Step 3 ：跟踪
     bool bLKOKc0;
-    if (mpLastKeyFrame)
+    // if ((mState == OK) && mpLastKeyFrame)
+    if (false)
     {
       bLKOKc0 = true;
 #ifdef COMPILEDWITHC14
@@ -339,7 +340,7 @@ namespace ORB_SLAM2
     //! debug: update track thread state
     if (bLKOK)
     {
-      mState = OK;
+      // mState = OK;
     }
     // same as the case without introducing LK, i.e. original ORBSLAM2
     else
