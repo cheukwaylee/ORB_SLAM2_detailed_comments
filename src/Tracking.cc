@@ -308,10 +308,33 @@ namespace ORB_SLAM2
       }
       else
       {
+        // LK successfully
         mpFrameDrawer->mLK = mLKimg;
         // mCurrentFrame.mTcw = Tcw;
         mCurrentFrame.SetPose(Tcw);
         mpFrameDrawer->Update(this);
+
+        // 更新恒速运动模型 TrackWithMotionModel 中的mVelocity
+        if (!mLastFrame.mTcw.empty())
+        {
+          // 上一帧已经存在定位，恒速模型才有意义
+          cv::Mat LastTwc = cv::Mat::eye(4, 4, CV_32F);                                  // (上一帧 wrt world)^-1 的SE(3)
+          mLastFrame.GetRotationInverse().copyTo(LastTwc.rowRange(0, 3).colRange(0, 3)); // R
+          mLastFrame.GetCameraCenter().copyTo(LastTwc.rowRange(0, 3).col(3));            // T
+          // mVelocity = Tcl = Tcw * Twl,表示上一帧到当前帧的变换，
+          // 其中 Twl = LastTwc
+          // (当前帧 wrt 上一帧) = (当前帧 wrt world) * (world wrt 上一帧)
+          // 这个结果在匀速模型里面用来作为下一帧的初值
+          mVelocity = mCurrentFrame.mTcw * LastTwc;
+        }
+        else
+        // 上一帧不存在位姿信息，无法套用恒速模型
+        {
+          //否则速度为空
+          mVelocity = cv::Mat();
+        }
+
+        mLastFrame = Frame(mCurrentFrame);
       }
 
 #ifdef COMPILEDWITHC14
@@ -333,12 +356,21 @@ namespace ORB_SLAM2
     //! debug: Floating point exception
     if (mnTrackedInliersLK == 0)
       mnTrackedInliersLK = 1;
-    // LK tracking result
-    // the greater threshold, // 200
-    const bool bLKOKc1 = (mnTrackedInliersLK > 200);
-    // the smaller threshold, the more strictly, so less consider LK OK // 2.0f
-    const bool bLKOKc2 = ((mnLastTrackedInliersLK / mnTrackedInliersLK) < 2.0f);
-    const bool bLKOK = bLKOKc0 && bLKOKc1 && bLKOKc2;
+
+      // LK tracking result
+// the greater threshold,
+#define Threshold_LK_Inliers 100         // default 100
+#define Threshold_LK_LongTermInliers 300 // default 300
+// the smaller threshold, the more strictly, so less consider LK OK
+#define Threshold_LK_InliersDecreaseRate 2.0f // default 2.0f
+    const bool bLKOKc1 = (mnTrackedInliersLK > Threshold_LK_Inliers);
+    const bool bLKOKc2 = ((mnLastTrackedInliersLK / mnTrackedInliersLK) < Threshold_LK_InliersDecreaseRate);
+    const bool bLKOKc3 = (mCurrentFrame.mnId < mnLastKeyFrameId + mMaxFrames);
+    const bool bLKOKc4 = (mnMatchesInliers > Threshold_LK_LongTermInliers);
+    const bool bLKOK = bLKOKc0 && bLKOKc1 && bLKOKc2 && (bLKOKc3 || bLKOKc4);
+#undef Threshold_LK_Inliers
+#undef Threshold_LK_LongTermInliers
+#undef Threshold_LK_InliersDecreaseRate
 
     //! debug: update LK track thread state
     if (bLKOK)
