@@ -66,9 +66,9 @@ namespace ORB_SLAM2
     class Tracking
     {
 
-    public: // add LK-RGBD
-        bool mNeedNewKF = true;
-        cv::Mat mLKimg;
+    protected:
+        bool mNeedNewKF = true; // add LK-RGBD
+        cv::Mat mLKimg;         // add LK-RGBD-Stereo
 
     public:
         /**
@@ -199,7 +199,7 @@ namespace ORB_SLAM2
         ///>             // ANSWER 在双目输入和在RGBD输入时，为左侧图像的灰度图
         cv::Mat mImGray;
         cv::Mat mLastImGray; // add LK-Stereo
-        cv::Mat mImDepth;    // add LK-RGBD
+        cv::Mat mImDepth;    // add LK-RGBD //? for what?
 
         // Initialization Variables (Monocular)
         // 初始化时前两帧相关变量
@@ -235,6 +235,7 @@ namespace ORB_SLAM2
          */
         void Reset();
 
+        // for test result analyze
         int mnORBTimes;
         int mnLostTimes;
 
@@ -451,6 +452,8 @@ namespace ORB_SLAM2
         //  上一关键帧
         KeyFrame *mpLastKeyFrame;
         //? 为什么要用不同的持有方式？一个是指针，一个直接持有对象
+        // 竹曼猜测：keyframe是一直要保留的，所以用指针，不让他直接持有（省内存）
+        //       frame在完成定位后，如果不足够升级为关键帧，就会被抛弃，所以可以直接持有（不怕占地方）
         // 上一帧
         Frame mLastFrame;
         // 上一个关键帧的ID
@@ -459,7 +462,8 @@ namespace ORB_SLAM2
         unsigned int mnLastRelocFrameId;
 
         // uniform Motion Model
-        // 在上一循环中：(当前帧 wrt 上一帧) == （下一帧 wrt 当前帧）作为下一次循环的初值
+        // 在上一循环中：(当前帧 wrt 上一帧) =假设=
+        // （下一帧 wrt 当前帧）作为下一次接受新的一帧就行跟踪的初值
         cv::Mat mVelocity;
 
         // Color order (true RGB, false BGR, ignored if grayscale)

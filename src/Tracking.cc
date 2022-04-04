@@ -273,9 +273,12 @@ namespace ORB_SLAM2
     // Step 2 ：构造Frame对象
     // add LK-Stereo: LK always enable, and if it failed, try original ORB
 
-    // Step 3 ：跟踪
+    // Step 3 ：LK跟踪
     bool bLKOKc0;
-    if ((mState == OK) && mpLastKeyFrame)
+    // always enable LK, unless the last keyframe is not existing
+    // mpLastKeyFrame: modified when insert new keyframe or initialization
+    // so in LK, not need to modify
+    if (mpLastKeyFrame)
     {
       bLKOKc0 = true;
 #ifdef COMPILEDWITHC14
@@ -298,15 +301,17 @@ namespace ORB_SLAM2
       // mLKimg = flow(mpLastKeyFrame, imRGB,  mCurrentFrame.mnId - mpLastKeyFrame->mnFrameId ==1, mK, mDistCoef, mTcw);
 
       //! debug: mLKimg could be empty, when exception in LK
-      if (mnTrackedInliersLK < 0)
+      if (mnTrackedInliersLK == -1)
       {
-        mnTrackedInliersLK = 0;
+        // LK failed, not any result
+        bLKOKc0 = false;
       }
       else
       {
         mpFrameDrawer->mLK = mLKimg;
         // mCurrentFrame.mTcw = Tcw;
         mCurrentFrame.SetPose(Tcw);
+        mpFrameDrawer->Update(this);
       }
 
 #ifdef COMPILEDWITHC14
@@ -316,10 +321,10 @@ namespace ORB_SLAM2
 #endif
       cout << "------ track LK optical flow  use time: "
            << chrono::duration_cast<std::chrono::duration<double>>(t2_LK - t1_LK).count() << endl;
-      mpFrameDrawer->Update(this);
     }
     else
     {
+      // the last keyframe is not existing, turn to ORB
       bLKOKc0 = false;
     }
 
@@ -335,11 +340,12 @@ namespace ORB_SLAM2
     const bool bLKOKc2 = ((mnLastTrackedInliersLK / mnTrackedInliersLK) < 2.0f);
     const bool bLKOK = bLKOKc0 && bLKOKc1 && bLKOKc2;
 
-    //! debug: update track thread state
+    //! debug: update LK track thread state
     if (bLKOK)
     {
-      // mState = OK;
+      mState = OK;
     }
+    // Step 4 ：LK跟踪效果不理想，则ORBSLAM2
     // same as the case without introducing LK, i.e. original ORBSLAM2
     else
     {
@@ -588,9 +594,9 @@ namespace ORB_SLAM2
    */
   void Tracking::Track()
   {
-    // mState为tracking的状态，包括 SYSTME_NOT_READY, NO_IMAGES_YET, NOT_INITIALIZED, OK, LOST
+    // mState为tracking的状态，包括 SYSTEM_NOT_READY, NO_IMAGES_YET, NOT_INITIALIZED, OK, LOST
     // 如果图像复位过、或者第一次运行，则为 NO_IMAGES_YET状态
-    if (mState == NO_IMAGES_YET) //? 什么逻辑？ 状态往前一步？
+    if (mState == NO_IMAGES_YET)
     {
       mState = NOT_INITIALIZED;
     }
@@ -601,8 +607,9 @@ namespace ORB_SLAM2
     // Get Map Mutex -> Map cannot be changed
     // 地图更新时加锁。保证地图不会发生变化
     //  Question: 这样子会不会影响地图的实时更新?
-    //  Ansewer:  主要耗时在构造帧//?(构造帧是啥 关键帧吗？)//中特征点的提取和匹配部分,
+    //  Ansewer:  主要耗时在构造帧中特征点的提取和匹配部分,
     //        在那个时候地图是没有被上锁的,有足够的时间更新地图
+    //? 作用域是整个Track()吗？
     unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
 
     // Step 1：地图初始化
@@ -619,7 +626,8 @@ namespace ORB_SLAM2
       mpFrameDrawer->Update(this);
 
       //这个状态量被上面的初始化函数中被更新
-      if (mState != OK) //? 意味着初始化失败？
+      if (mState != OK)
+        // 意味着初始化失败？
         return;
     }
 
@@ -647,11 +655,11 @@ namespace ORB_SLAM2
           // 局部建图线程则可能会对原有的地图点进行替换.在这里进行检查
           CheckReplacedInLastFrame();
 
-          // Step 2.2
+          // Step 2.2 有速度优先根据恒速运动模型，否则/失败则根据参考帧进行跟踪
           // 运动模型是空的 或 刚完成重定位： 跟踪参考关键帧；否则恒速模型跟踪
           // 第一个条件,如果运动模型为空,说明是刚初始化开始，或者已经跟丢了
           // 第二个条件,如果当前帧紧紧地跟着在重定位的帧的后面，我们将重定位帧来恢复位姿
-          //       mnLastRelocFrameId 上一次重定位的那一帧
+          //                          mnLastRelocFrameId: 上一次重定位的那一帧
           if (mVelocity.empty() || ((mCurrentFrame.mnId - mnLastRelocFrameId) < 2))
           {
             // 用最近的关键帧来跟踪当前的普通帧
@@ -794,7 +802,7 @@ namespace ORB_SLAM2
       if (!mbOnlyTracking)
       // 正常SLAM模式，有地图更新
       {
-        if (bOK) // 恒速模型 or 重定位 其中有一个成功
+        if (bOK)
           bOK = TrackLocalMap();
       }
       else
@@ -804,7 +812,7 @@ namespace ORB_SLAM2
         // We cannot retrieve(取回) a local map and therefore we do not perform TrackLocalMap().
         // Once the system relocalizes the camera we will use the local map again.
 
-        // 重定位成功
+        // bOK:  恒速模型 or 重定位 其中有一个成功
         if (bOK && !mbVO)
           bOK = TrackLocalMap();
       }
@@ -877,7 +885,6 @@ namespace ORB_SLAM2
           MapPoint *pMP = *lit;
           delete pMP; // 释放
         }
-
         // 这里不仅仅是清除mlpTemporalPoints，通过delete pMP还删除了指针指向的MapPoint
         // 不能够直接执行这个是因为其中存储的都是指针（要释放容器里面的地址）,上一步的操作是为了避免内存泄露
         mlpTemporalPoints.clear(); // clear the whole list
@@ -951,7 +958,7 @@ namespace ORB_SLAM2
       mlbLost.push_back(mState == LOST);
     }
 
-  } // end Tracking
+  } // end Track()
 
   /*
    * @brief 双目和rgbd的地图初始化，比单目简单很多
@@ -986,7 +993,9 @@ namespace ORB_SLAM2
       // 为每个特征点构造MapPoint
       for (int i = 0; i < mCurrentFrame.N; i++)
       {
+        // 创建frame的时候就会完成特征提取，左右目匹配，然后深度计算
         float z = mCurrentFrame.mvDepth[i]; // 当前帧中当前遍历到的地图点的深度
+
         //只有具有正深度的点才会被构造地图点
         if (z > 0)
         {
@@ -1465,6 +1474,7 @@ namespace ORB_SLAM2
     // We sort points according to their measured depth by the stereo/RGB-D sensor
     // Step 2.1：得到上一帧中具有有效深度值的特征点（不一定是地图点）
     //? 竹曼觉得 RGBD不一定是地图点因为本身就带有深度信息，但是双目的话有深度信息代表是被三角化的特征点（那么应该就是地图点吧？）
+    // 应该是再次三角化，弄多一点特征点的意思吧？
     vector<pair<float, int>> vDepthIdx;
     vDepthIdx.reserve(mLastFrame.N); // 所以下面可以用empty
     /** reserve 是容器预留空间，但并不真正创建元素对象，在创建对象之前，不能引用容器内的元素，

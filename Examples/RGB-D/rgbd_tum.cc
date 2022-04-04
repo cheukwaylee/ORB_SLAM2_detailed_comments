@@ -63,8 +63,8 @@ int main(int argc, char **argv)
     // }
     argv[1] = "../Vocabulary/ORBvoc.txt";
     argv[2] = "../Examples/RGB-D/TUM1.yaml";
-    argv[3] = "/mnt/hgfs/code/data_tum_rgbd/rgbd_dataset_freiburg1_xyz/";
-    argv[4] = "../Examples/RGB-D/associations/fr1_xyz.txt";
+    argv[3] = "/home/cw/thesis_dataset/data_tum_rgbd/rgbd_dataset_freiburg1_room/";
+    argv[4] = "../Examples/RGB-D/associations/fr1_room.txt";
     /*
 
     ../Examples/rgbd_tum

@@ -27,7 +27,12 @@ vector<cv::Point3f> mappointInCurrentFrame;
 
 /**
  * 暂未解决 无法把所有帧的位姿加入CameraTrajectory.txt的问题
- * **/
+ *
+ * // TODO add init guess, by   uniform motion model/
+ * // TODO               mappoints unproject/
+ * // TODO                two-way optical flow, and consider to merge with original ORB
+ *
+ */
 
 /**
  * @brief
@@ -51,6 +56,7 @@ vector<cv::Point3f> mappointInCurrentFrame;
  */
 
 //! bug: "nMatchesInliers" need to be set to zero, if cannot be tracked?!!!!
+// ANS: "nMatchesInliers" set to -1, as a flag, if LK failed
 
 cv::Mat computeMtcwUseLK(
     KeyFrame *lastKeyFrame,
@@ -68,7 +74,11 @@ cv::Mat computeMtcwUseLK(
     // observation time threshold
     int obsPlus = 0;
     if (lastKeyFrame->mnId > 3)
-        obsPlus = 3;
+    {
+        // TODO 尝试改变一下？
+        // obsPlus = 3;
+        obsPlus = 1;
+    }
 
     // first time to call this function, last RGB image is not existed,
     // so LK cannot work, here can be regarded as LK initialization
@@ -96,9 +106,10 @@ cv::Mat computeMtcwUseLK(
         // ! make KeyFrame member mvpMapPoints public
         for (int i = 0; i < lastKeyFrame->mvpMapPoints.size(); i++)
         {
+            // TODO 要不要像ORBSLAM2那样加一次 CheckReplacedInLastFrame()
             //  mappoint existing && its observation time not too few
             if (lastKeyFrame->mvpMapPoints[i] &&
-                lastKeyFrame->mvpMapPoints[i]->Observations() > obsPlus) //? if the program died here, try to change 1 to 0
+                lastKeyFrame->mvpMapPoints[i]->Observations() > obsPlus) //? if the program died here, try to change 1 to 0, 意思是把obsPlus改为0吧可能？
             {
                 //? keypoints here must come from mappoints?
                 // keypoints.push_back(lastKeyFrame->mvKeysUn[i].pt); // LK-RGBD
