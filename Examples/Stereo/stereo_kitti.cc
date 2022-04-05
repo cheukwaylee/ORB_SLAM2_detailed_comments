@@ -48,6 +48,10 @@ int main(int argc, char **argv)
 
     // ../Examples/Stereo/stereo_kitti ../Vocabulary/ORBvoc.txt ../Examples/Stereo/KITTI03.yaml /mnt/hgfs/code/data_odometry_gray/00/
     argv[1] = "../Vocabulary/ORBvoc.txt";
+
+    argv[2] = "../Examples/Stereo/KITTI04-12.yaml";
+    argv[3] = "/home/cw/thesis_dataset/data_odometry_gray/dataset/sequences/05/";
+
     argv[2] = "../Examples/Stereo/KITTI00-02.yaml";
     argv[3] = "/home/cw/thesis_dataset/data_odometry_gray/dataset/sequences/00/";
 
@@ -78,8 +82,6 @@ int main(int argc, char **argv)
     cv::Mat imLeft, imRight;
     for (int ni = 0; ni < nImages; ni++)
     {
-        cout << endl
-             << "start # " << ni << endl;
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni], CV_LOAD_IMAGE_UNCHANGED);
         imRight = cv::imread(vstrImageRight[ni], CV_LOAD_IMAGE_UNCHANGED);
@@ -93,6 +95,8 @@ int main(int argc, char **argv)
             return 1;
         }
 
+        cout << endl
+             << "start # " << ni << endl;
 #ifdef COMPILEDWITHC14
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 #else
@@ -107,10 +111,9 @@ int main(int argc, char **argv)
 #else
         std::chrono::monotonic_clock::time_point t2 = std::chrono::monotonic_clock::now();
 #endif
-
         double ttrack = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
 
-        cout << "end # " << ni << " used time " << ttrack << endl;
+        cout << "end # " << ni << " used time " << 1e3 * ttrack << " ms" << endl;
 
         vTimesTrack[ni] = ttrack;
 
@@ -137,8 +140,8 @@ int main(int argc, char **argv)
     }
     cout << "-------" << endl
          << endl;
-    cout << "median tracking time: " << vTimesTrack[nImages / 2] << endl;
-    cout << "mean tracking time: " << totaltime / nImages << endl;
+    cout << "median tracking time: " << 1e3 * vTimesTrack[nImages / 2] << " ms" << endl;
+    cout << "mean tracking time: " << 1e3 * totaltime / nImages << " ms" << endl;
 
     // Save camera trajectory
     // 以KITTI格式存储相机轨迹数据

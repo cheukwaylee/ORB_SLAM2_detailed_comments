@@ -274,11 +274,12 @@ namespace ORB_SLAM2
     // add LK-Stereo: LK always enable, and if it failed, try original ORB
 
     // Step 3 ：LK跟踪
+    const bool bEnableLK = true;
     bool bLKOKc0;
     // always enable LK, unless the last keyframe is not existing
     // mpLastKeyFrame: modified when insert new keyframe or initialization
     // so in LK, not need to modify
-    if (mpLastKeyFrame)
+    if (bEnableLK && mpLastKeyFrame && (mState == OK)) //? need this condiction? (&& mState == OK)
     {
       bLKOKc0 = true;
 #ifdef COMPILEDWITHC14
@@ -303,38 +304,15 @@ namespace ORB_SLAM2
       //! debug: mLKimg could be empty, when exception in LK
       if (mnTrackedInliersLK == -1)
       {
-        // LK failed, not any result
+        // LK failed, not any result, turn to ORB
         bLKOKc0 = false;
       }
       else
       {
-        // LK successfully
-        mpFrameDrawer->mLK = mLKimg;
         // mCurrentFrame.mTcw = Tcw;
         mCurrentFrame.SetPose(Tcw);
+        mpFrameDrawer->mLK = mLKimg;
         mpFrameDrawer->Update(this);
-
-        // 更新恒速运动模型 TrackWithMotionModel 中的mVelocity
-        if (!mLastFrame.mTcw.empty())
-        {
-          // 上一帧已经存在定位，恒速模型才有意义
-          cv::Mat LastTwc = cv::Mat::eye(4, 4, CV_32F);                                  // (上一帧 wrt world)^-1 的SE(3)
-          mLastFrame.GetRotationInverse().copyTo(LastTwc.rowRange(0, 3).colRange(0, 3)); // R
-          mLastFrame.GetCameraCenter().copyTo(LastTwc.rowRange(0, 3).col(3));            // T
-          // mVelocity = Tcl = Tcw * Twl,表示上一帧到当前帧的变换，
-          // 其中 Twl = LastTwc
-          // (当前帧 wrt 上一帧) = (当前帧 wrt world) * (world wrt 上一帧)
-          // 这个结果在匀速模型里面用来作为下一帧的初值
-          mVelocity = mCurrentFrame.mTcw * LastTwc;
-        }
-        else
-        // 上一帧不存在位姿信息，无法套用恒速模型
-        {
-          //否则速度为空
-          mVelocity = cv::Mat();
-        }
-
-        mLastFrame = Frame(mCurrentFrame);
       }
 
 #ifdef COMPILEDWITHC14
@@ -343,7 +321,7 @@ namespace ORB_SLAM2
       std::chrono::monotonic_clock::time_point t2_LK = std::chrono::monotonic_clock::now();
 #endif
       cout << "------ track LK optical flow  use time: "
-           << chrono::duration_cast<std::chrono::duration<double>>(t2_LK - t1_LK).count() << endl;
+           << 1e3 * chrono::duration_cast<std::chrono::duration<double>>(t2_LK - t1_LK).count() << " ms" << endl;
     }
     else
     {
@@ -359,23 +337,49 @@ namespace ORB_SLAM2
 
       // LK tracking result
 // the greater threshold,
-#define Threshold_LK_Inliers 100         // default 100
-#define Threshold_LK_LongTermInliers 300 // default 300
+#define Threshold_LK_eachInliers 430     // default 100
+#define Threshold_LK_LongTermInliers 700 // default 300
 // the smaller threshold, the more strictly, so less consider LK OK
-#define Threshold_LK_InliersDecreaseRate 2.0f // default 2.0f
-    const bool bLKOKc1 = (mnTrackedInliersLK > Threshold_LK_Inliers);
+#define Threshold_LK_InliersDecreaseRate 1.2f // default 2.0f
+    const bool bLKOKc1 = (mnTrackedInliersLK > Threshold_LK_eachInliers);
     const bool bLKOKc2 = ((mnLastTrackedInliersLK / mnTrackedInliersLK) < Threshold_LK_InliersDecreaseRate);
     const bool bLKOKc3 = (mCurrentFrame.mnId < mnLastKeyFrameId + mMaxFrames);
     const bool bLKOKc4 = (mnMatchesInliers > Threshold_LK_LongTermInliers);
     const bool bLKOK = bLKOKc0 && bLKOKc1 && bLKOKc2 && (bLKOKc3 || bLKOKc4);
-#undef Threshold_LK_Inliers
+#undef Threshold_LK_eachInliers
 #undef Threshold_LK_LongTermInliers
 #undef Threshold_LK_InliersDecreaseRate
 
     //! debug: update LK track thread state
-    if (bLKOK)
+    if (bLKOK && mState == OK)
+    // when tracking state is not OK, must call ORBSLAM
     {
-      mState = OK;
+      // LK successfully
+
+      // // 更新恒速运动模型 TrackWithMotionModel 中的mVelocity
+      // if (!mLastFrame.mTcw.empty())
+      // {
+      //   // 上一帧已经存在定位，恒速模型才有意义
+      //   cv::Mat LastTwc = cv::Mat::eye(4, 4, CV_32F);                                  // (上一帧 wrt world)^-1 的SE(3)
+      //   mLastFrame.GetRotationInverse().copyTo(LastTwc.rowRange(0, 3).colRange(0, 3)); // R
+      //   mLastFrame.GetCameraCenter().copyTo(LastTwc.rowRange(0, 3).col(3));            // T
+      //   // mVelocity = Tcl = Tcw * Twl,表示上一帧到当前帧的变换，
+      //   // 其中 Twl = LastTwc
+      //   // (当前帧 wrt 上一帧) = (当前帧 wrt world) * (world wrt 上一帧)
+      //   // 这个结果在匀速模型里面用来作为下一帧的初值
+      //   mVelocity = mCurrentFrame.mTcw * LastTwc;
+      // }
+      // else
+      // // 上一帧不存在位姿信息，无法套用恒速模型
+      // {
+      //   //否则速度为空
+      //   mVelocity = cv::Mat();
+      // }
+
+      // mLastFrame = Frame(mCurrentFrame);
+      // cout << "mLastFrame = Frame(mCurrentFrame) OK" << endl;
+
+      mVelocity = cv::Mat();
     }
     // Step 4 ：LK跟踪效果不理想，则ORBSLAM2
     // same as the case without introducing LK, i.e. original ORBSLAM2
@@ -406,7 +410,7 @@ namespace ORB_SLAM2
       std::chrono::monotonic_clock::time_point t2_ORB = std::chrono::monotonic_clock::now();
 #endif
       cout << "****** KeyFrame track feature use time: "
-           << chrono::duration_cast<std::chrono::duration<double>>(t2_ORB - t1_ORB).count() << endl;
+           << 1e3 * chrono::duration_cast<std::chrono::duration<double>>(t2_ORB - t1_ORB).count() << " ms" << endl;
     }
 
     // cout << "currentFrame and pose: " << mCurrentFrame.mnId << endl;
@@ -626,6 +630,8 @@ namespace ORB_SLAM2
    */
   void Tracking::Track()
   {
+    // cout << "entering Track()" << endl;
+
     // mState为tracking的状态，包括 SYSTEM_NOT_READY, NO_IMAGES_YET, NOT_INITIALIZED, OK, LOST
     // 如果图像复位过、或者第一次运行，则为 NO_IMAGES_YET状态
     if (mState == NO_IMAGES_YET)
@@ -1400,6 +1406,8 @@ namespace ORB_SLAM2
    */
   bool Tracking::TrackReferenceKeyFrame()
   {
+    // cout << "entering TrackReferenceKeyFrame()" << endl;
+
     // Compute Bag of Words vector
     // Step 1：将当前帧的描述子转化为BoW向量
     // 作用在mCurrentFrame的这两个成员变量
@@ -1604,6 +1612,8 @@ namespace ORB_SLAM2
    */
   bool Tracking::TrackWithMotionModel()
   {
+    // cout << "entering TrackWithMotionModel()" << endl;
+
     // 最小距离 < 0.9*次小距离 匹配成功，检查旋转
     ORBmatcher matcher(0.9, true);
 

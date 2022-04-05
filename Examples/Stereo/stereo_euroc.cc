@@ -57,9 +57,9 @@ int main(int argc, char **argv)
     // ../Examples/Stereo/stereo_kitti ../Vocabulary/ORBvoc.txt ../Examples/Stereo/KITTI03.yaml /mnt/hgfs/code/data_odometry_gray/00/
     argv[1] = "../Vocabulary/ORBvoc.txt";
     argv[2] = "../Examples/Stereo/EuRoC.yaml";
-    argv[3] = "/home/cw/thesis_dataset/data_EuRoC/MH_01_easy/mav0/cam0/data";
-    argv[4] = "/home/cw/thesis_dataset/data_EuRoC/MH_01_easy/mav0/cam1/data";
-    argv[5] = "../Examples/Stereo/EuRoC_TimeStamps/MH01.txt";
+    argv[3] = "/home/cw/thesis_dataset/data_EuRoC/V1_01_easy/mav0/cam0/data";
+    argv[4] = "/home/cw/thesis_dataset/data_EuRoC/V1_01_easy/mav0/cam1/data";
+    argv[5] = "../Examples/Stereo/EuRoC_TimeStamps/V101.txt";
 
     // D:\code\data_EuRoC\MH_01_easy\mav0\cam1\data
 
@@ -205,7 +205,8 @@ int main(int argc, char **argv)
         double tframe = vTimeStamp[ni];
 
         // step 4.3 开始计时
-
+        cout << endl
+             << "start # " << ni << endl;
 #ifdef COMPILEDWITHC14
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 #else
@@ -225,6 +226,8 @@ int main(int argc, char **argv)
 #endif
 
         double ttrack = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
+
+        cout << "end # " << ni << " used time " << 1e3 * ttrack << " ms" << endl;
 
         vTimesTrack[ni] = ttrack;
 
@@ -254,8 +257,8 @@ int main(int argc, char **argv)
     }
     cout << "-------" << endl
          << endl;
-    cout << "median tracking time: " << vTimesTrack[nImages / 2] << endl;
-    cout << "mean tracking time: " << totaltime / nImages << endl;
+    cout << "median tracking time: " << 1e3 * vTimesTrack[nImages / 2] << " ms" << endl;
+    cout << "mean tracking time: " << 1e3 * totaltime / nImages << " ms" << endl;
 
     // Save camera trajectory
     // step 7 以TUM格式保存轨迹文件（普通帧+ 关键帧）
