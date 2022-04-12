@@ -741,7 +741,7 @@ namespace ORB_SLAM2
           if (!mbVO)
           {
             // Step 2.2.1 如果跟踪正常，使用恒速模型 或 参考关键帧跟踪
-            // ?In last frame we tracked enough MapPoints in the map
+            // In last frame we tracked enough MapPoints in the map
             if (!mVelocity.empty())
             {
               bOK = TrackWithMotionModel();
@@ -835,8 +835,14 @@ namespace ORB_SLAM2
 
       // If we have an initial estimation of the camera pose and matching. Track the local map.
       // Step 3：在跟踪得到当前帧初始姿态后，现在对local map进行跟踪得到更多的匹配，并优化当前位姿
+      //      local map:当前帧、当前帧的MapPoints、当前关键帧与其它关键帧共视关系
+
       // 竹曼理解：前面是粗略的定位，这里是精匹配
-      // 前面只是跟踪一帧得到初始位姿，这里搜索局部关键帧、局部地图点，和当前帧进行投影匹配，得到更多匹配的MapPoints后进行Pose优化
+
+      // 前面只是主要是两两跟踪（恒速模型跟踪上一帧、跟踪参考帧）跟踪一帧得到初始位姿，
+      // 这里搜索局部关键帧、局部地图点，和当前帧进行投影匹配，得到更多匹配的MapPoints后进行Pose优化
+
+
       if (!mbOnlyTracking)
       // 正常SLAM模式，有地图更新
       {

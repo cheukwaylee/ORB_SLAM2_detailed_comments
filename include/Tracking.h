@@ -308,7 +308,6 @@ namespace ORB_SLAM2
 
         /**
          * @brief 更新局部地图点（来自局部关键帧）
-         *
          */
         void UpdateLocalPoints();
 

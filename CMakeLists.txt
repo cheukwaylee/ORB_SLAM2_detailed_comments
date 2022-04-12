@@ -1,9 +1,12 @@
 cmake_minimum_required(VERSION 2.8)
 project(ORB_SLAM2)
 
-IF(NOT CMAKE_BUILD_TYPE)
-  SET(CMAKE_BUILD_TYPE Release)
-ENDIF()
+# IF(NOT CMAKE_BUILD_TYPE)
+#   SET(CMAKE_BUILD_TYPE Release)
+# ENDIF()
+
+SET(CMAKE_BUILD_TYPE Release)
+
 
 MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
 
@@ -51,6 +54,7 @@ if(NOT OpenCV_FOUND)
       message(FATAL_ERROR "OpenCV > 2.4.3 not found.")
    endif()
 endif()
+# find_package(OpenCV 3.4 QUIET)
 
 # find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Eigen3 3.1.0 REQUIRED NO_MODULE)
