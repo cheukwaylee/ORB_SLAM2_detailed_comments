@@ -87,11 +87,12 @@ namespace ORB_SLAM2
   /**
    * @brief 用于计算特征点的方向，这里是返回角度作为方向。
    * 目的 计算特征点方向是为了使得提取的特征点具有旋转不变性。
-   * 方法 灰度质心法：以几何中心和灰度质心的连线作为该特征点方向
+   * 方法 灰度质心法： 以几何中心和灰度质心的连线作为该特征点方向
+   *                使用特征点周围半径19大小的圆的重心方向作为特征点方向
    * @param[in] image   要进行操作的某层金字塔图像
-   * @param[in] pt    当前特征点的坐标
+   * @param[in] pt      当前特征点的坐标
    * @param[in] u_max   图像块的每一行的坐标边界 u_max
-   * @return float        返回特征点的角度，范围为[0,360)角度，精度为0.3°
+   * @return float      返回特征点的角度，范围为[0,360)角度，精度为0.3°
    */
   /*
    * 如果它不是出现在类中，那么它是一个普通的全局的静态函数。
@@ -117,6 +118,7 @@ namespace ORB_SLAM2
     // Go line by line in the circular patch
     //这里的step1表示这个图像一行包含的字节总数。参考[https://blog.csdn.net/qianqing13579/article/details/45318279]
     int step = (int)image.step1();
+
     //注意这里是以v=0中心线为对称轴，然后对称地每成对的两行之间进行遍历，这样处理加快了计算速度
     for (int v = 1; v <= HALF_PATCH_SIZE; ++v)
     {
@@ -153,16 +155,19 @@ namespace ORB_SLAM2
   const float factorPI = (float)(CV_PI / 180.f);
 
   /**
-   * @brief
-   * 计算ORB特征点的描述子。注意这个是全局的静态函数，只能是在本文件内被调用
+   * @brief 计算ORB特征点的描述子。注意这个是全局的静态函数，只能是在本文件内被调用
+   * @details 计算BRIEF描述子的核心步骤是在特征点周围半径为16的圆域内选取256对点对,
+   *          每个点对内比较得到1位,共得到256位的描述子,
+   *          为保计算的一致性,工程上使用特定设计的点对pattern,在程序里被硬编码为成员变量了.
    * @param[in] kpt     特征点对象
    * @param[in] img     提取特征点的图像
-   * @param[in] pattern   预定义好的采样模板
-   * @param[out] desc    用作输出变量，保存计算好的描述子，维度为32*8 = 256 bit
+   * @param[in] pattern 预定义好的采样模板
+   * @param[out] desc   用作输出变量，保存计算好的描述子，维度为32*8 = 256 bit
    */
   // 不是类的方法 只是定义在这个cpp文件的静态函数
   static void computeOrbDescriptor(
-      const KeyPoint &kpt, const Mat &img,
+      const KeyPoint &kpt,
+      const Mat &img,
       const Point *pattern,
       uchar *desc)
   {
@@ -171,8 +176,9 @@ namespace ORB_SLAM2
     //计算这个角度的余弦值和正弦值
     float a = (float)cos(angle), b = (float)sin(angle);
 
-    //获得图像中心指针 //? 为什么不是获取图像在关键点位置的指针
+    //获得图像中心指针
     const uchar *center = &img.at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x));
+
     //获得图像的每行的字节数
     const int step = (int)img.step;
 
@@ -183,20 +189,24 @@ namespace ORB_SLAM2
     //旋转后坐标(x',y')，他们的变换关系:
     // x'= xcos(θ) - ysin(θ),  y'= xsin(θ) + ycos(θ)
 
+    // 在computeOrientation() 中我们求出了每个特征点的主方向,
+    // 在计算描述子时, 应该将特征点周围像素旋转到主方向上来计算;
+    // 为了编程方便, 实践上对pattern进行旋转.
+
 // 下面表示 y' * step + x'
-//? 基于关键点处的指针 再加上一定的偏移量？
-// 返回的是 const uchar
+// 返回的是 const uchar //基于图像中心的指针 加上一定的偏移
 #define GET_VALUE(idx)                                             \
   center[cvRound(pattern[idx].x * b + pattern[idx].y * a) * step + \
          cvRound(pattern[idx].x * a - pattern[idx].y * b)]
 
-    // brief描述子由32*8位组成 256个点对
-    //其中每一位是来自于两个像素点灰度的直接比较，所以每比较出8bit结果，需要16个随机点，
-    //这也就是为什么pattern需要+=16的原因
-    // 每次计算一个字节
+    // brief描述子由32*8位组成 256bit 来自256对点的灰度比较
+    // 其中每一位是来自于两个像素点灰度的直接比较
+    // 每次比较出8bit结果，需要16个随机点（8对）
+    // 这也就是为什么pattern需要+=16的原因
     for (int i = 0; i < 32; ++i, pattern += 16)
-    // 每次用16个pattern 它的类型是const Point *
-    // 搞了32次 16*32=512个Point 也就是1024个整型 也就是static int bit_pattern_31_[256 * 2 * 2] 用完
+    // 每次用16个（8对点，出8bit描述子） 搞了32次 16*32=512个Point 也就是1024个整型
+    // 也就是static int bit_pattern_31_[256 * 2 * 2] 刚好用完
+    // pattern的类型是const Point* 所以可以偏移，也可以用[]取值，arr_ptr[i] == *(arr_ptr+i)
     {
       int t0,  //参与比较的第1个特征点的灰度值
           t1,  //参与比较的第2个特征点的灰度值
@@ -230,14 +240,13 @@ namespace ORB_SLAM2
       //保存当前比较的出来的描述子的这个字节 8bits
       desc[i] = (uchar)val;
     }
-
 //为了避免和程序中的其他部分冲突在，在使用完成之后就取消这个宏定义
 #undef GET_VALUE
   }
 
   //下面就是预先定义好的随机点集，256是指可以提取出256bit的描述子信息，
   //每个bit由一对点比较得来；4=2*2，前面的2是需要两个点（一对点）进行比较，后面的2是一个点有两个坐标： x1 y1 x2 y2
-  // TODO 写在这里会进到堆区 占用运行内存 应考虑弄到配置文件里
+  // TODO 写在这里会进到heap堆区 占用运行内存 应考虑弄到配置文件里
   static int bit_pattern_31_[256 * 2 * 2] =
       {
           8, -3,
@@ -762,7 +771,8 @@ namespace ORB_SLAM2
       int _iniThFAST,     //指定初始的FAST特征点提取参数，可以提取出最明显的角点
       int _minThFAST      //如果初始阈值没有检测到角点，降低到这个阈值提取出弱一点的角点
       )
-      : nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
+      : nfeatures(_nfeatures),
+        scaleFactor(_scaleFactor), nlevels(_nlevels),
         iniThFAST(_iniThFAST), minThFAST(_minThFAST) //设置这些参数
   {
     //存储每层图像缩放系数的vector调整为符合图层数目的大小
@@ -799,6 +809,7 @@ namespace ORB_SLAM2
 
     //图片降采样缩放系数的倒数
     float factor = 1.0f / scaleFactor;
+
     //第0层图像应该分配的特征点数量：把整个金字塔要提取的特征点数分配到每一层
     // 第0层的特征点数 = 总数1000 * ( 1 - (1/1.2) ) / ( 1 - (1/1.2)^8 ) //等比数列求和
     //  规律：层数 nlevels 越大， 0层越少
@@ -809,7 +820,8 @@ namespace ORB_SLAM2
 
     //用于在特征点个数分配的，特征点的累计计数清空
     int sumFeatures = 0;
-    //开始逐层计算要分配的特征点个数，顶层图像除外（看循环后面）
+
+    //开始逐层计算要分配的特征点个数，顶层图像除外（看循环后面）,分配了nlevels - 1层
     for (int level = 0; level < nlevels - 1; level++)
     {
       //分配 cvRound : 返回个参数最接近的整数值
@@ -833,7 +845,7 @@ namespace ORB_SLAM2
     //使用std::back_inserter的目的是可以快覆盖掉这个容器pattern之前的数据
     // Constructs a back-insert iterator that inserts new elements at the end of x.
     //其实这里的操作就是，将在全局变量区域的、int格式的随机采样点以cv::point格式复制到当前类对象中的成员变量中
-    // 一开始pattern是空的
+    // 初始化成员变量pattern 它一开始是空的
     // pattern = [pattern *pattern0 *(pattern0+1) *(pattern0+2) ... *(pattern0+npoints) ]
     // 迭代器：头指针   头指针+长度偏移    复制的目的地：std::back_inserter返回一个pattern末端的迭代器
     std::copy(pattern0, pattern0 + npoints, std::back_inserter(pattern));
@@ -853,21 +865,22 @@ namespace ORB_SLAM2
     // 之所以这样选择是因为圆周上的对称特性
     //这里的二分之根2就是对应那个45°圆心角 // 考虑的是1/8圆
     //计算圆的最大行号，+1应该是把中间行也给考虑进去了
+
     // 45度与圆交点的纵坐标v的范围
     int vmax = cvFloor(HALF_PATCH_SIZE * sqrt(2.f) / 2 + 1); // 11
     int vmin = cvCeil(HALF_PATCH_SIZE * sqrt(2.f) / 2);      // 11
 
     //半径的平方
-    const double hp2 = HALF_PATCH_SIZE * HALF_PATCH_SIZE;
+    const double hp2 = HALF_PATCH_SIZE * HALF_PATCH_SIZE; // 225
 
     // 下半45度的umax 横坐标在对应纵坐标v的最大值
     //利用圆的方程计算每行像素的u坐标边界（max）
-    for (v = 0; v <= vmax; ++v) // v: 0..vmax ++ 的整数 0..11
+    for (v = 0; v <= vmax; ++v) // v: 0..vmax  [0:1:11]
     {
-      umax[v] = cvRound( // umax[0..11]
-          sqrt(hp2 - v * v));
+      umax[v] = cvRound(sqrt(hp2 - v * v));
       // r^2 - v^2 = u^2
       //结果都是大于0的结果，表示x坐标在这一行的边界
+      // 结果umax[] = 15, 15, 15, 15, 14, 14, 14, 13, 13, 12, 11, 10, x, x, x, x
     }
 
     // r=8的例子 运行完下半45度的时候
@@ -879,13 +892,17 @@ namespace ORB_SLAM2
     //这里其实是使用了对称的方式计算上四分之一的圆周上的umax，
     //目的也是为了保持严格的对称（如果按照常规的想法做，由于cvRound就会很容易出现不对称的情况，
     //同时这些随机采样的特征点集也不能够满足旋转之后的采样不变性了）
-    for (v = HALF_PATCH_SIZE, v0 = 0; v >= vmin; --v) // v: r..vmin -- 的整数 15..11
+    for (v = HALF_PATCH_SIZE, v0 = 0; v >= vmin; --v) // v: r..vmin [15:1:11]
     {
       while (umax[v0] == umax[v0 + 1]) // umax[0] =?= umax[1]
         ++v0;
       umax[v] = v0;
       ++v0;
     }
+    // 结果补上了umax[]后面的 9, 8, 6, 3
+    // v     0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11,12,13,14,15 纵坐标
+    // umax:15, 15, 15, 15, 14, 14, 14, 13, 13, 12, 11, 10, 9, 8, 6, 3 横坐标
+
     // TODO: 搞不懂啊不过不要紧吧
     // v 7..6, v0=0
     //  v=7, umax_0 != umax_1, umax[7] = 0, v0=1
@@ -900,9 +917,9 @@ namespace ORB_SLAM2
 
   /**
    * @brief 计算特征点的方向
-   * @param[in] image         特征点所在当前金字塔的图像
+   * @param[in] image             特征点所在当前金字塔的图像
    * @param[in & out] keypoints   特征点向量
-   * @param[in] umax         每个特征点所在图像区块的每行的边界 u_max组成的vector
+   * @param[in] umax              每个特征点所在图像区块的每行的边界 u_max组成的vector
    */
   static void computeOrientation(
       const Mat &image,
@@ -913,7 +930,8 @@ namespace ORB_SLAM2
     for (vector<KeyPoint>::iterator
              keypoint = keypoints.begin(),
              keypointEnd = keypoints.end();
-         keypoint != keypointEnd; ++keypoint)
+         keypoint != keypointEnd;
+         ++keypoint)
     {
       // 调用IC_Angle 函数计算这个特征点的方向
       keypoint->angle =
@@ -1010,19 +1028,20 @@ namespace ORB_SLAM2
   /**
    * @brief 使用四叉树法对一个图像金字塔图层中的特征点进行平均和分发
    *
-   * @param[in] vToDistributeKeys     等待进行分配到四叉树中的特征点
-   * @param[in] minX 当前图层的图像的边界，坐标都是在“半径扩充图像”坐标系下的坐标
+   * @param[in] vToDistributeKeys     等待进行分配到四叉树中的特征点(当前单个图层)
+   * @param[in] minX    当前图层的图像的边界，坐标都是在“半径扩充图像”坐标系下的坐标
    * @param[in] maxX
    * @param[in] minY
    * @param[in] maxY
-   * @param[in] N                     希望提取出的特征点个数
+   * @param[in] N                     希望提取出的特征点个数(当前单个图层)
    * @param[in] level                 指定的金字塔图层，并未使用
    * @return vector<cv::KeyPoint>     已经均匀分散好的特征点vector容器
    */
   vector<cv::KeyPoint>
   ORBextractor::DistributeOctTree(const vector<cv::KeyPoint> &vToDistributeKeys,
                                   const int &minX, const int &maxX,
-                                  const int &minY, const int &maxY, const int &N,
+                                  const int &minY, const int &maxY,
+                                  const int &N,
                                   const int &level)
   {
     // Compute how many initial nodes
@@ -1389,10 +1408,15 @@ namespace ORB_SLAM2
   }
 
   //计算四叉树的特征点，函数名字后面的OctTree只是说明了在过滤和分配特征点时所使用的方式
+  /* 提取特征点最重要的就是力求特征点均匀地分布在图像的所有部分, 为实现这一目标, 编程实现上使用了两个技巧 :
+   *   1. 分CELL搜索特征点,若某CELL内特征点响应值普遍较小的话就降低分数线再搜索一遍.
+   *   2. 对得到的所有特征点进行八叉树筛选, 若某区域内特征点数目过于密集, 则只取其中响应值最大的那个
+   */
   void ORBextractor::ComputeKeyPointsOctTree(
-      vector<vector<KeyPoint>> &
-          allKeypoints) //所有的特征点，这里第一层vector存储的是某图层里面的所有特征点，
-                        //第二层存储的是整个图像金字塔中的所有图层里面的所有特征点
+      vector<vector<KeyPoint>> &allKeypoints //所有的特征点 待填充的空容器
+                                             //这里第一层vector存储的是某图层里面的所有特征点，
+                                             //第二层存储的是整个图像金字塔中的所有图层里面的所有特征点
+  )
   {
     //重新调整图像层数
     allKeypoints.resize(nlevels);
@@ -1404,29 +1428,27 @@ namespace ORB_SLAM2
     //遍历所有图像
     for (int level = 0; level < nlevels; ++level)
     {
-      //计算这层图像的坐标边界， NOTICE
-      //注意这里是坐标边界，EDGE_THRESHOLD指的应该是可以提取特征点的有效图像边界，后面会一直使用“有效图像边界“这个自创名词
-      const int minBorderX =
-          EDGE_THRESHOLD -
-          3; //这里的3是因为在计算FAST特征点的时候，需要建立一个半径为3的圆
-      const int minBorderY =
-          minBorderX; // minY的计算就可以直接拷贝上面的计算结果了
+      //计算这层图像的坐标边界， //? “半径扩充”
+      // NOTICE 注意这里是坐标边界，EDGE_THRESHOLD指的应该是可以提取特征点的有效图像边界，
+      //后面会一直使用“有效图像边界“这个自创名词
+      const int minBorderX = EDGE_THRESHOLD - 3; //这里的3是因为在计算FAST特征点的时候，需要建立一个半径为3的圆
+      const int minBorderY = minBorderX;         // minY的计算就可以直接拷贝上面的计算结果了
       const int maxBorderX = mvImagePyramid[level].cols - EDGE_THRESHOLD + 3;
       const int maxBorderY = mvImagePyramid[level].rows - EDGE_THRESHOLD + 3;
 
       //存储需要进行平均分配的特征点
       vector<cv::KeyPoint> vToDistributeKeys;
-      //一般地都是过量采集，所以这里预分配的空间大小是nfeatures*10
+      //一般地都是过量采集，所以这里预分配的空间大小是整个金字塔nfeatures*10
       vToDistributeKeys.reserve(nfeatures * 10);
 
       //计算进行特征点提取的图像区域尺寸
       const float width = (maxBorderX - minBorderX);
       const float height = (maxBorderY - minBorderY);
 
-      //计算网格在当前层的图像有的行数和列数
+      //计算网格在当前层的图像有的行数和列数 30*30的小网格
       const int nCols = width / W;
       const int nRows = height / W;
-      //计算每个图像网格所占的像素行数和列数
+      //计算每个图像网格所占的像素行数和列数 近似w==30
       const int wCell = ceil(width / nCols);
       const int hCell = ceil(height / nRows);
 
@@ -1440,10 +1462,15 @@ namespace ORB_SLAM2
         //目测一个图像网格的大小是25*25啊
         float maxY = iniY + hCell + 6;
 
+        // 需要注意的是相邻的CELL之间会有6像素的重叠区域,
+        // 因为提取FAST特征点需要计算特征点周围半径为3的圆周上的像素点信息,
+        // 实际上产生特征点的区域比传入的搜索区域小3像素.
+
         //如果初始的行坐标就已经超过了有效的图像边界了，这里的“有效图像”是指原始的、可以提取FAST特征点的图像区域
         if (iniY >= maxBorderY - 3)
           //那么就跳过这一行
           continue;
+
         //如果图像的大小导致不能够正好划分出来整齐的图像网格，那么就要委屈最后一行了
         if (maxY > maxBorderY)
           maxY = maxBorderY;
@@ -1455,6 +1482,7 @@ namespace ORB_SLAM2
           const float iniX = minBorderX + j * wCell;
           //计算这列网格的最大列坐标，+6的含义和前面相同
           float maxX = iniX + wCell + 6;
+
           //判断坐标是否在图像中
           //如果初始的列坐标就已经超过了有效的图像边界了，这里的“有效图像”是指原始的、可以提取FAST特征点的图像区域。
           //并且应该同前面行坐标的边界对应，都为-3
@@ -1465,17 +1493,17 @@ namespace ORB_SLAM2
           if (maxX > maxBorderX)
             maxX = maxBorderX;
 
-          // FAST提取兴趣点, 自适应阈值
           //这个向量存储这个cell中的特征点
           vector<cv::KeyPoint> vKeysCell;
+
+          // FAST提取兴趣点, 自适应阈值
           //调用opencv的库函数来检测FAST角点
           FAST(mvImagePyramid[level]
                    .rowRange(iniY, maxY)
-                   .colRange(iniX,
-                             maxX), //待检测的图像，这里就是当前遍历到的图像块
-               vKeysCell,           //存储角点位置的容器
-               iniThFAST,           //检测阈值
-               true);               //使能非极大值抑制
+                   .colRange(iniX, maxX), //待检测的图像，这里就是当前遍历到的图像块
+               vKeysCell,                 //存储角点位置的容器
+               iniThFAST,                 //检测阈值
+               true);                     //使能非极大值抑制
 
           //如果这个图像块中使用默认的FAST检测阈值没有能够检测到角点
           if (vKeysCell.empty())
@@ -1483,13 +1511,13 @@ namespace ORB_SLAM2
             //那么就使用更低的阈值来进行重新检测
             FAST(mvImagePyramid[level]
                      .rowRange(iniY, maxY)
-                     .colRange(iniX, maxX), //待检测的图像
+                     .colRange(iniX, maxX), //待检测的图像，这里就是当前遍历到的图像块
                  vKeysCell,                 //存储角点位置的容器
                  minThFAST,                 //更低的检测阈值
                  true);                     //使能非极大值抑制
           }
 
-          //当图像cell中检测到FAST角点的时候执行下面的语句
+          //当图像cell中检测到FAST角点（结果容器非空）的时候执行下面的语句
           if (!vKeysCell.empty())
           {
             //遍历其中的所有FAST角点
@@ -1502,29 +1530,32 @@ namespace ORB_SLAM2
               //在后面将会被继续转换成为在当前图层的扩充图像坐标系下的坐标
               (*vit).pt.x += j * wCell;
               (*vit).pt.y += i * hCell;
-              //然后将其加入到”等待被分配“的特征点容器中
+
+              //然后将其加入到”等待被分配“的特征点容器中 //? 所以是“半径扩充”？
               vToDistributeKeys.push_back(*vit);
             } //遍历图像cell中的所有的提取出来的FAST角点，并且恢复其在整个金字塔当前层图像下的坐标
           }   //当图像cell中检测到FAST角点的时候执行下面的语句
         }     //开始遍历图像cell的列
       }       //开始遍历图像cell的行
 
-      //声明一个对当前图层的特征点的容器的引用
+      // 至此 vToDistributeKeys 保存了当前层所有cell里面的所有FAST keypoint
+
+      //声明一个对当前图层的特征点的容器的引用（取别名）， allKeypoints是这个函数的参数用于输出关键点提取结果
       vector<KeyPoint> &keypoints = allKeypoints[level];
+
       //并且调整其大小为欲提取出来的特征点个数（当然这里也是扩大了的，因为不可能所有的特征点都是在这一个图层中提取出来的）
       keypoints.reserve(nfeatures);
 
-      // 根据mnFeatuvector<KeyPoint> & keypoints =
-      // allKeypoints[level];resPerLevel,即该层的兴趣点数,对特征点进行剔除
+      // 根据mnFeatuvector<KeyPoint> & keypoints = allKeypoints[level]; resPerLevel,即该层的兴趣点数,对特征点进行剔除
+
       //返回值是一个保存有特征点的vector容器，含有剔除后的保留下来的特征点
       //得到的特征点的坐标，依旧是在当前图层下来讲的
       keypoints = DistributeOctTree(
-          vToDistributeKeys, //当前图层提取出来的特征点，也即是等待剔除的特征点
-                             // NOTICE
-                             // 注意此时特征点所使用的坐标都是在“半径扩充图像”下的
-          minBorderX,
-          maxBorderX, //当前图层图像的边界，而这里的坐标却都是在“边缘扩充图像”下的
-          minBorderY, maxBorderY,
+          vToDistributeKeys,         //当前图层提取出来的特征点，也即是等待剔除的特征点
+                                     // NOTICE 注意此时特征点所使用的坐标都是在“半径扩充图像”下的
+          minBorderX, maxBorderX,    //当前图层图像的边界，而这里的坐标却都是在“边缘扩充图像”下的
+          minBorderY, maxBorderY,    //? “半径扩充”? “边缘扩充”?
+                                     //! 竹曼觉得这里应该也是“半径扩充”
           mnFeaturesPerLevel[level], //希望保留下来的当前层图像的特征点个数
           level);                    //当前层图像所在的图层
 
@@ -1533,8 +1564,9 @@ namespace ORB_SLAM2
       const int scaledPatchSize = PATCH_SIZE * mvScaleFactor[level];
 
       // Add border to coordinates and scale information
-      //获取剔除过程后保留下来的特征点数目
+      //获取剔除过程后保留下来的特征点数目（当前层）
       const int nkps = keypoints.size();
+
       //然后开始遍历这些特征点，恢复其在当前图层图像坐标系下的坐标
       for (int i = 0; i < nkps; i++)
       {
@@ -1548,8 +1580,10 @@ namespace ORB_SLAM2
       }
     }
 
+    // 至此 已经遍历完图片的所有层
+
     // compute orientations
-    //然后计算这些特征点的方向信息，注意这里还是分层计算的
+    //然后计算这些特征点的方向信息，注意这里还是分层计算的（给特征点追加方向信息）
     for (int level = 0; level < nlevels; ++level)
       computeOrientation(
           mvImagePyramid[level], //对应的图层的图像
@@ -1908,11 +1942,12 @@ namespace ORB_SLAM2
 
   /**
    * @brief 用仿函数（重载括号运算符）方法来计算图像特征点
+   * 这个函数重载了()运算符,使得其他类可以将ORBextractor类型变量当作函数来使用.
    *
    * @param[in] _image                    输入原始图的图像
    * @param[in] _mask                     掩膜mask
-   * @param[in & out] _keypoints                存储特征点关键点的向量
-   * @param[in & out] _descriptors              存储特征点描述子的矩阵
+   * @param[in & out] _keypoints          存储特征点关键点的向量 //? 应该是单纯的输出吧？竹曼觉得进来是个空容器
+   * @param[in & out] _descriptors        存储特征点描述子的矩阵
    */
   void ORBextractor::operator()(InputArray _image, InputArray _mask,
                                 vector<KeyPoint> &_keypoints,
@@ -1933,7 +1968,8 @@ namespace ORB_SLAM2
 
     // Step 3
     // 计算图像的特征点，并且将特征点进行均匀化。均匀的特征点可以提高位姿计算精度
-    // 存储所有的特征点，注意此处为二维的vector，第一维存储的是金字塔的层数，第二维存储的是那一层金字塔图像里提取的所有特征点
+    // 存储所有的特征点，注意此处为二维的vector，
+    // 第一维存储的是金字塔的层数，第二维存储的是那一层金字塔图像里提取的所有特征点
     vector<vector<KeyPoint>> allKeypoints;
     //使用四叉树的方式计算每层图像的特征点并进行分配
     ComputeKeyPointsOctTree(allKeypoints);
@@ -1961,7 +1997,8 @@ namespace ORB_SLAM2
       _descriptors.create(nkeypoints, //矩阵的行数，对应为特征点的总个数
                           32,         //矩阵的列数，对应为使用32*8=256位描述子
                           CV_8U);     //矩阵元素的格式
-                                      //获取这个描述子的矩阵信息
+
+      //获取这个描述子的矩阵信息 //? 应该是类似取引用 别名
       // ?为什么不是直接在参数_descriptors上对矩阵内容进行修改，而是重新新建了一个变量，复制矩阵后，在这个新建变量的基础上进行修改？
       descriptors = _descriptors.getMat();
     }
@@ -1971,7 +2008,8 @@ namespace ORB_SLAM2
     //并预分配正确大小的空间
     _keypoints.reserve(nkeypoints);
 
-    //因为遍历是一层一层进行的，但是描述子那个矩阵是存储整个图像金字塔中特征点的描述子，所以在这里设置了Offset变量来保存“寻址”时的偏移量，
+    //因为遍历是一层一层进行的，但是描述子那个矩阵是存储整个图像金字塔中特征点的描述子，
+    //所以在这里设置了Offset变量来保存“寻址”时的偏移量，
     //辅助进行在总描述子mat中的定位
     int offset = 0;
     //开始遍历每一层图像
@@ -2002,6 +2040,7 @@ namespace ORB_SLAM2
       // Compute the descriptors 计算描述子
       // desc存储当前图层的描述子
       Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
+
       // Step 6 计算高斯模糊后图像的描述子
       computeDescriptors(workingMat, //高斯模糊之后的图层图像
                          keypoints,  //当前图层中的特征点集合
@@ -2029,7 +2068,8 @@ namespace ORB_SLAM2
 
       // And add the keypoints to the output
       // 将keypoints中内容插入到_keypoints 的末尾
-      // keypoint其实是对allkeypoints中每层图像中特征点的引用，这样allkeypoints中的所有特征点在这里被转存到输出的_keypoints
+      // keypoint其实是对allkeypoints中每层图像中特征点的引用，
+      // 这样allkeypoints中的所有特征点在这里被转存到输出的_keypoints
       _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
     }
   }
@@ -2037,7 +2077,9 @@ namespace ORB_SLAM2
   /**
    * 构建图像金字塔
    * @param image
-   * 输入原图像，这个输入图像所有像素都是有效的，也就是说都是可以在其上提取出FAST角点的
+   * @brief 输入原图像，这个输入图像所有像素都是有效的，也就是说都是可以在其上提取出FAST角点的
+   * @details 先进行图片缩放,缩放到mvInvScaleFactor对应尺寸.在图像外补一圈厚度为19的padding
+   *          (提取FAST特征点需要特征点周围半径为3的圆域,计算ORB描述子需要特征点周围半径为16的圆域)
    */
   void ORBextractor::ComputePyramid(cv::Mat image)
   {
@@ -2054,6 +2096,7 @@ namespace ORB_SLAM2
                      sz.height + EDGE_THRESHOLD * 2);
       // 定义了两个变量：temp是扩展了边界的图像，masktemp并未使用
       Mat temp(wholeSize, image.type()), masktemp;
+
       // mvImagePyramid 刚开始时是个空的vector<Mat>
       // 把图像金字塔该图层的图像指针mvImagePyramid指向temp的中间部分（这里为浅拷贝，内存相同）
       mvImagePyramid[level] =
@@ -2105,11 +2148,13 @@ namespace ORB_SLAM2
       {
         //对于第0层未缩放图像，直接将图像深拷贝到temp的中间，并且对其周围进行边界扩展。此时temp就是对原图扩展后的图像
         copyMakeBorder(image, //这里是原图像
-                       temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
-                       EDGE_THRESHOLD, BORDER_REFLECT_101);
+                       temp,
+                       EDGE_THRESHOLD, EDGE_THRESHOLD,
+                       EDGE_THRESHOLD, EDGE_THRESHOLD,
+                       BORDER_REFLECT_101);
       }
-      // //! 原代码mvImagePyramid 并未扩充，应该添加下面一行代码
-      // mvImagePyramid[level] = temp;
+      //! 原代码mvImagePyramid 并未扩充，应该添加下面一行代码
+      mvImagePyramid[level] = temp;
     }
   }
 

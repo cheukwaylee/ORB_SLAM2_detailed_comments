@@ -27,13 +27,19 @@
 
 //这个文件主要负责进行ORB特征点的提取和数目分配功能
 
+/*
+由上述代码分析可知,每次完成ORB特征点提取之后,图像金字塔信息就作废了,
+下一帧图像到来时调用ComputePyramid()函数会覆盖掉本帧图像的图像金字塔信息;
+但从金字塔中提取的图像特征点的信息会被保存在Frame对象中.所以ORB-SLAM2是稀疏重建,
+对每帧图像只保留最多nfeatures个特征点(及其对应的地图点).
+*/
+
 namespace ORB_SLAM2
 {
 
     /**
      * @brief 提取器节点
      * @details 用于在特征点的分配过程中。
-     *
      */
     // 分配四叉树时用到的结点类型
     class ExtractorNode
@@ -50,7 +56,8 @@ namespace ORB_SLAM2
          * @param[out] n3   分裂的节点3
          * @param[out] n4   分裂的节点4
          */
-        void DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNode &n3, ExtractorNode &n4);
+        void DivideNode(ExtractorNode &n1, ExtractorNode &n2,
+                        ExtractorNode &n3, ExtractorNode &n4);
 
         ///保存有当前节点的特征点
         std::vector<cv::KeyPoint> vKeys;
@@ -85,10 +92,11 @@ namespace ORB_SLAM2
 
         /**
          * @brief 构造函数
-         * @detials 有两种响应值的阈值的原因是，程序先使用初始的默认FAST响应值阈值提取图像cell中的特征点；
+         * @details 有两种响应值的阈值的原因是，程序先使用初始的默认FAST响应值阈值提取图像cell中的特征点；
          * 如果提取到的特征点数目不足，那么就降低要求，使用较小FAST响应值阈值进行再次提取，以获得尽可能多的FAST角点。
+         *
          * @param[in] nfeatures        指定要提取出来的特征点数目
-         * @param[in] scaleFactor       图像金字塔的缩放系数
+         * @param[in] scaleFactor      图像金字塔的缩放系数
          * @param[in] nlevels         指定需要提取特征点的图像金字塔层
          * @param[in] iniThFAST        初始的默认FAST响应值阈值
          * @param[in] minThFAST        较小的FAST响应值阈值
@@ -112,7 +120,8 @@ namespace ORB_SLAM2
          * @param[out] descriptors  输出用的保存特征点描述子的cv::Mat
          */
         void operator()(
-            cv::InputArray image, cv::InputArray mask,
+            cv::InputArray image,
+            cv::InputArray mask,
             std::vector<cv::KeyPoint> &keypoints,
             cv::OutputArray descriptors);
 
@@ -186,12 +195,12 @@ namespace ORB_SLAM2
 
         /**
          * @brief 以八叉树分配特征点的方式，计算图像金字塔中的特征点
-         * @detials 这里两层vector的意思是，第一层存储的是某张图片中的所有特征点，
+         * @details 这里两层vector的意思是，第一层存储的是某张图片中的所有特征点，
          *      而第二层则是存储图像金字塔中所有图像的vectors of keypoints
          * @param[out] allKeypoints 提取得到的所有特征点
          */
-        // ?? 竹曼的理解 allKeypoints.size()  == 金字塔层数
-        // ??       allKeypoints[0].size() == 第一层的特征点数
+        // ? 竹曼的理解 allKeypoints.size()  == 金字塔层数
+        // ?       allKeypoints[0].size() == 第一层的特征点数
         void ComputeKeyPointsOctTree(std::vector<std::vector<cv::KeyPoint>> &allKeypoints);
 
         /**
@@ -201,14 +210,15 @@ namespace ORB_SLAM2
          * @param[in] maxX                分发的图像范围
          * @param[in] minY                分发的图像范围
          * @param[in] maxY                分发的图像范围
-         * @param[in] nFeatures             设定的、本图层中想要提取的特征点数目
+         * @param[in] nFeatures           设定的、本图层中想要提取的特征点数目
          * @param[in] level               要提取的图像所在的金字塔层
          * @return std::vector<cv::KeyPoint>
          */
         std::vector<cv::KeyPoint> DistributeOctTree(
             const std::vector<cv::KeyPoint> &vToDistributeKeys,
             const int &minX, const int &maxX, const int &minY, const int &maxY,
-            const int &nFeatures, const int &level);
+            const int &nFeatures,
+            const int &level);
 
         /**
          * @brief 这是使用另外一种老办法提取并平均特征点的方法，但是在实际的程序中并没有用到
@@ -228,7 +238,8 @@ namespace ORB_SLAM2
 
         std::vector<int> mnFeaturesPerLevel; ///<分配到每层图像中，要提取的特征点数目
 
-        std::vector<int> umax; ///<计算特征点方向的时候，有个圆形的图像区域，这个vector中存储了每行u轴的边界（四分之一，其他部分通过对称获得）
+        ///<计算特征点方向的时候，有个圆形的图像区域，这个vector中存储了每行u轴的边界（四分之一，其他部分通过对称获得）
+        std::vector<int> umax;
 
         std::vector<float> mvScaleFactor;    ///<每层图像的缩放因子
         std::vector<float> mvInvScaleFactor; ///<以及每层缩放因子的倒数
