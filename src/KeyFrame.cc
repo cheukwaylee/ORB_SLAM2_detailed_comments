@@ -330,6 +330,7 @@ namespace ORB_SLAM2
         //获取当前地图点在某个关键帧的观测中，对应的特征点的索引，如果没有观测，索引为-1
         int idx = pMP->GetIndexInKeyFrame(this);
         if (idx >= 0)
+            // 把当前KF观测到的mp向量中要删除的那个置为nullptr
             mvpMapPoints[idx] = static_cast<MapPoint *>(NULL);
     }
 
@@ -366,6 +367,7 @@ namespace ORB_SLAM2
         int nPoints = 0;
         // 是否检查数目
         const bool bCheckObs = minObs > 0;
+        
         // N是当前帧中特征点的个数
         for (int i = 0; i < N; i++)
         {

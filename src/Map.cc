@@ -67,7 +67,6 @@ namespace ORB_SLAM2
 
     /**
      * @brief 从地图中删除地图点,但是其实这个地图点所占用的内存空间并没有被释放
-     *
      * @param[in] pMP
      */
     void Map::EraseMapPoint(MapPoint *pMP)
@@ -75,10 +74,13 @@ namespace ORB_SLAM2
         unique_lock<mutex> lock(mMutexMap);
         mspMapPoints.erase(pMP);
 
-        //下面是作者加入的注释. 实际上只是从std::set中删除了地图点的指针, 原先地图点
-        //占用的内存区域并没有得到释放
+        //下面是作者加入的注释. 实际上只是从std::set中删除了地图点的指针, 
+        //原先地图点占用的内存区域并没有得到释放
         // TODO: This only erase the pointer.
         // Delete the MapPoint
+        
+        //? 竹曼写的，所以应该这样子？
+        // delete pMP;
     }
 
     /**
