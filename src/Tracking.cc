@@ -85,16 +85,16 @@ namespace ORB_SLAM2
     // Load camera parameters from settings file
     // Step 1 从配置文件中加载相机参数
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
-    //? 参数从ymal读入，而const变量要在声明的时候指定具体数值（所以不能const???）
     const float fx = fSettings["Camera.fx"];
     const float fy = fSettings["Camera.fy"];
     const float cx = fSettings["Camera.cx"];
     const float cy = fSettings["Camera.cy"];
 
     //     |fx  0   cx|
-    // K =  |0   fy  cy|
-    //     |0   0   1|
+    // K = |0   fy  cy|
+    //     |0   0   1 |
     //构造相机内参矩阵
+    //? 参数从ymal读入，而const变量要在声明的时候指定具体数值（所以不能const???）
     cv::Mat K = cv::Mat::eye(3, 3, CV_32F);
     K.at<float>(0, 0) = fx;
     K.at<float>(1, 1) = fy;
@@ -157,15 +157,15 @@ namespace ORB_SLAM2
     // Step 2 加载ORB特征点有关的参数,并新建特征点提取器
     //? 为什么不能const？
     // 每一帧提取的特征点数 1000
-    int nFeatures = fSettings["ORBextractor.nFeatures"];
+    const int nFeatures = fSettings["ORBextractor.nFeatures"];
     // 图像建立金字塔时的变化尺度 1.2
-    float fScaleFactor = fSettings["ORBextractor.scaleFactor"];
+    const float fScaleFactor = fSettings["ORBextractor.scaleFactor"];
     // 尺度金字塔的层数 8
-    int nLevels = fSettings["ORBextractor.nLevels"];
+    const int nLevels = fSettings["ORBextractor.nLevels"];
     // 提取fast特征点的默认阈值 20
-    int fIniThFAST = fSettings["ORBextractor.iniThFAST"];
+    const int fIniThFAST = fSettings["ORBextractor.iniThFAST"];
     // 如果默认阈值提取不出足够fast特征点，则使用最小阈值 8
-    int fMinThFAST = fSettings["ORBextractor.minThFAST"];
+    const int fMinThFAST = fSettings["ORBextractor.minThFAST"];
 
     // tracking过程都会用到mpORBextractorLeft作为特征点提取器
     mpORBextractorLeft =
@@ -202,7 +202,8 @@ namespace ORB_SLAM2
     {
       // 深度相机disparity转化为depth时的因子
       mDepthMapFactor = fSettings["DepthMapFactor"];
-      //? 原理是啥？
+
+      // TODO //? 原理是啥？
       if (fabs(mDepthMapFactor) < 1e-5)
         mDepthMapFactor = 1;
       else

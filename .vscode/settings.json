@@ -129,6 +129,13 @@
 		"string_view": "cpp",
 		"random": "cpp",
 		"core": "cpp",
-		"geometry": "cpp"
+		"geometry": "cpp",
+		"strstream": "cpp",
+		"bit": "cpp",
+		"complex": "cpp",
+		"cfenv": "cpp",
+		"cinttypes": "cpp",
+		"typeindex": "cpp",
+		"variant": "cpp"
 	}
 }

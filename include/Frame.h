@@ -50,12 +50,11 @@ namespace ORB_SLAM2
 
 /**
  * @brief 网格的行数
- *
  */
 #define FRAME_GRID_ROWS 48
+
 /**
  * @brief 网格的列数
- *
  */
 #define FRAME_GRID_COLS 64
 
@@ -72,21 +71,32 @@ namespace ORB_SLAM2
     public:
         /**
          * @brief Construct a new Frame object without parameter.
-         *
          */
         Frame();
 
-        // Copy constructor. 拷贝构造函数
+        /* 构造函数的this指针
+        因为类内成员初始化顺序和类内成员声明顺序一致，基类总是在子类之前初始化。所以
+            在父类初始化列表当中，使用 this 引用更早声明的变量初始化是安全的。
+            在父类构造函数体当中，使用 this 指针引用类内成员是安全的（不包括子类成员）。
+            在父类构造函数体当中，down-cast this 指针为子类指针，这一行为本身是安全的；但是使用 down-casted 指针访问子类成员是不安全的。
+            在子类初始化列表当中，使用 this 指针引用父类成员总是安全的。
+            访问函数的情况，则看对应的函数访问的类内成员是否已经初始化。
+        */
+
+        // Copy constructor
         /**
          * @brief 拷贝构造函数
-         * @details 复制构造函数, mLastFrame = Frame(mCurrentFrame) \n
-         * 如果不是自定义拷贝函数的话，系统自动生成的拷贝函数对于所有涉及分配内存的操作都将是浅拷贝 \n
+         *
+         * @details 复制构造函数, mLastFrame = Frame(mCurrentFrame)
+         * 如果不是自定义拷贝函数的话，系统自动生成的拷贝函数对于所有涉及分配内存的操作都将是浅拷贝
+         *
          * @param[in] frame 引用
          * @note 另外注意，调用这个函数的时候，这个函数中隐藏的this指针其实是指向目标帧的
+         *          //? 竹曼理解：本质是把 传入的 &frame深拷贝到this
          */
         Frame(const Frame &frame);
 
-        // Constructor for stereo cameras.  为双目相机准备的构造函数
+        // Constructor for stereo cameras
         /**
          * @brief 为双目相机准备的构造函数
          *
@@ -146,8 +156,9 @@ namespace ORB_SLAM2
         // Compute Bag of Words representation.
         // 存放在mBowVec中
         /**
-         * @brief 计算词袋模型
+         * @brief   计算词袋模型
          * @details 计算词包 mBowVec 和 mFeatVec ，其中 mFeatVec 记录了属于第i个node（在第4层）的ni个描述子
+         *
          * @see CreateInitialMapMonocular() TrackReferenceKeyFrame() Relocalization()
          */
         void ComputeBoW();
@@ -163,8 +174,8 @@ namespace ORB_SLAM2
 
         // Computes rotation, translation and camera center matrices from the camera pose.
         /**
-         * @brief 根据相机位姿,计算相机的旋转,平移和相机中心等矩阵.
-         * @details 其实就是根据Tcw计算mRcw、mtcw和mRwc、mOw.
+         * @brief   根据相机位姿,计算相机的旋转,平移和相机中心等矩阵.
+         * @details 其实就是根据Tcw 计算mRcw、mtcw和mRwc、mOw.
          */
         void UpdatePoseMatrices();
 
@@ -209,7 +220,7 @@ namespace ORB_SLAM2
         bool isInFrustum(MapPoint *pMP, float viewingCosLimit);
 
         /**
-         * @brief 计算某个特征点所在网格的网格坐标，如果找到特征点所在的网格坐标，记录在nGridPosX,nGridPosY里，返回true，没找到返回false
+         * @brief 计算某个特征点所在网格的网格坐标，如果找到特征点所在的网格坐标，记录在nGridPosX,nGridPosY里，返回true
          *
          * @param[in] kp                    给定的特征点
          * @param[in & out] posX            特征点所在网格坐标的横坐标
@@ -220,7 +231,7 @@ namespace ORB_SLAM2
         bool PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY);
 
         /**
-         * @brief 找到在 以x,y为中心,半径为r的圆形内且金字塔层级在[minLevel, maxLevel]的特征点
+         * @brief 找到在 以x,y为中心,半径为r的圆形内 且金字塔层级在[minLevel, maxLevel] 的特征点
          *
          * @param[in] x                     特征点坐标x
          * @param[in] y                     特征点坐标y
@@ -229,13 +240,15 @@ namespace ORB_SLAM2
          * @param[in] maxLevel              最大金字塔层级
          * @return vector<size_t>           返回搜索到的候选匹配点id
          */
-        vector<size_t> GetFeaturesInArea(const float &x, const float &y, const float &r, const int minLevel = -1, const int maxLevel = -1) const;
+        vector<size_t> GetFeaturesInArea(const float &x, const float &y, const float &r,
+                                         const int minLevel = -1, const int maxLevel = -1) const;
 
         // Search a match for each keypoint in the left image to a keypoint in the right image.
         // If there is a match, depth is computed and the right coordinate associated to the left keypoint is stored.
         /**
-         * @brief 计算双目图像之间的匹配关系 \n
+         * @brief   计算双目图像之间的匹配关系 \n
          * @details 如果对于一对特征点确定有匹配关系存在,那么这个特征点在空间中的深度将会被计算,并且和左特征点相对应的右特征点的坐标将会被存储.
+         *
          * \n 说白了，就是为左图的每一个特征点在右图中找到匹配点
          * \n 方法是根据基线(有冗余范围)上描述子距离找到匹配, 再进行SAD精确定位
          * \n 这里所说的SAD是一种双目立体视觉匹配算法，可参考[https://blog.csdn.net/u012507022/article/details/51446891]
@@ -246,10 +259,10 @@ namespace ORB_SLAM2
         void ComputeStereoMatches();
 
         // Associate a "right" coordinate to a keypoint if there is valid depth in the depthmap.
-
         /**
-         * @brief 对于RGBD输入,如果某个特征点的深度值有效,那么这里将会反向计算出假想的"右目图像中对应特征点的坐标".
-         * @detials 博客[https://www.cnblogs.com/panda1/p/7001052.html]中说，这个是将地图点和其深度对应起来.
+         * @brief   对于RGBD输入,如果某个特征点的深度值有效,那么这里将会反向计算出假想的"右目图像中对应特征点的坐标".
+         *
+         * @details 博客[https://www.cnblogs.com/panda1/p/7001052.html]中说，这个是将地图点和其深度对应起来.
          * 是不是可以这样理解，为了能够将特征点反投影到三维空间中得到其在相机坐标系以及在世界坐标系下的坐标，我们需要获得它
          * 在当前相机下的深度。对于双目相机，我们是通过计算左侧图像中特征点在右图中的坐标，然后计算其深度；对于RGBD图像我们可以直接
          * 从深度图像上获得特征点的深度，不过为了处理上的一致这里使用这个深度计算了彩色图像（左图）中的特征点在假想的“右图”中的
@@ -287,8 +300,7 @@ namespace ORB_SLAM2
          * @name 相机的内参数
          * @{
          */
-
-        // TODO 考虑作为static
+        // TODO: 考虑作为static
         ///相机的内参数矩阵
         cv::Mat mK;
         // NOTICE 注意这里的相机内参数其实都是类的静态成员变量；此外相机的内参数矩阵和矫正参数矩阵却是普通的成员变量，
@@ -302,15 +314,15 @@ namespace ORB_SLAM2
         static float invfx; ///< x轴方向焦距的逆
         static float invfy; ///< x轴方向焦距的逆
 
-        // TODO 目测是opencv提供的图像去畸变参数矩阵的，但是其具体组成未知
+        // TODO: 目测是opencv提供的图像去畸变参数矩阵的，但是其具体组成未知
         ///去畸变参数
         cv::Mat mDistCoef;
 
-        // TODO 考虑作为static
+        // TODO: 考虑作为static
         // Stereo baseline multiplied by fx.
         /// baseline x fx
         float mbf;
-        // TODO 考虑作为static
+        // TODO: 考虑作为static
         // Stereo baseline in meters.
         ///相机的基线长度,单位为米
         float mb;
@@ -319,8 +331,11 @@ namespace ORB_SLAM2
 
         // Threshold close/far points. Close points are inserted from 1 view.
         // Far points are inserted as in the monocular case from 2 views.
-        // TODO 这里它所说的话还不是很理解。尤其是后面的一句。
+        // 判断单目特征点和双目特征点的阈值
+        // 深度低于该值得特征点被认为是双目特征点; 深度高于该值得特征点被认为是单目特征点
+        // TODO: 这里它所说的话还不是很理解。尤其是后面的一句。
         //而且,这个阈值不应该是在哪个帧中都一样吗?
+        // TODO: 考虑作为static
         ///判断远点和近点的深度阈值
         float mThDepth;
 
@@ -335,30 +350,25 @@ namespace ORB_SLAM2
         // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
         // In the stereo case, mvKeysUn is redundant as images must be rectified.
         // In the RGB-D case, RGB images can be distorted.
-        // mvKeys:原始左图像提取出的特征点（未校正）
-        // mvKeysRight:原始右图像提取出的特征点（未校正）
-        // mvKeysUn:校正mvKeys后的特征点，对于双目摄像头，一般得到的图像都是校正好的，再校正一次有点多余
-
         ///原始左图像提取出的特征点（未校正）
         std::vector<cv::KeyPoint> mvKeys;
         ///原始右图像提取出的特征点（未校正）
         std::vector<cv::KeyPoint> mvKeysRight;
         ///校正mvKeys后的特征点
+        ///@note 之所以对于双目摄像头只保存左图像矫正后的特征点,是因为对于双目摄像头,一般得到的图像都是矫正好的,这里再矫正一次有些多余.\n
         std::vector<cv::KeyPoint> mvKeysUn; // 左目 （双目不需要校正，单目 and RGBD没有右目）
 
-        ///@note 之所以对于双目摄像头只保存左图像矫正后的特征点,是因为对于双目摄像头,一般得到的图像都是矫正好的,这里再矫正一次有些多余.\n
         ///校正操作是在帧的构造函数中进行的。
 
         // Corresponding stereo coordinate and depth for each keypoint.
         // "Monocular" keypoints have a negative value.
         // 对于双目，mvuRight存储了左目像素点在右目中的对应点的横坐标 （因为纵坐标是一样的）
         // mvDepth对应的深度
-        // 单目摄像头，这两个容器中存的都是-1
-
         ///@note 对于单目摄像头，这两个容器中存的都是-1
         ///对于双目相机,存储左目像素点在右目中的对应点的横坐标 （因为纵坐标是一样的）
-
+        // 原因：假设校正后的双目相机平行且在一个平面上（可以用极线匹配）
         // m-member v-vector u-指代横坐标,因为最后这个坐标是通过各种拟合方法逼近出来的，所以使用float存储
+        // 左目特征点在右目中匹配特征点的横坐标(左右目匹配特征点的纵坐标相同)
         std::vector<float> mvuRight;
         ///对应的深度
         std::vector<float> mvDepth;
@@ -372,6 +382,7 @@ namespace ORB_SLAM2
         DBoW2::FeatureVector mFeatVec;
 
         // ORB descriptor, each row associated to a keypoint.
+        // 每行256bit
         /// 左目摄像头和右目摄像头特征点对应的描述子
         cv::Mat mDescriptors, mDescriptorsRight;
 
@@ -385,17 +396,17 @@ namespace ORB_SLAM2
         std::vector<bool> mvbOutlier;
 
         // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
-        //原来通过对图像分区域还能够降低重投影地图点时候的匹配复杂度啊。。。。。
-        ///@note 注意到上面也是类的静态成员变量， 有一个专用的标志mbInitialComputations用来在帧的构造函数中标记这些静态成员变量是否需要被赋值
+        //? 原来通过对图像分区域还能够降低重投影地图点时候的匹配复杂度啊。。。。。
+        ///@note 注意到上面也是类的静态成员变量，有一个专用的标志mbInitialComputations用来在帧的构造函数中标记这些静态成员变量是否需要被赋值
         /// 坐标乘以mfGridElementWidthInv和mfGridElementHeightInv就可以确定在哪个格子
         static float mfGridElementWidthInv;
-        /// 坐标乘以mfGridElementWidthInv和mfGridElementHeightInv就可以确定在哪个格子
         static float mfGridElementHeightInv;
 
         // 每个格子分配的特征点数，将图像分成格子，保证提取的特征点比较均匀
         // FRAME_GRID_ROWS 48
         // FRAME_GRID_COLS 64
         ///这个向量中存储的是每个图像网格内特征点的id（左图）
+        // 这是一个二维数组 数组的元素是的类型是 vector<int> 也就是总共有FRAME_GRID_COLS x FRAME_GRID_ROWS个vector<int>
         std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
         /** @} */
@@ -414,7 +425,6 @@ namespace ORB_SLAM2
 
         /**
          * @name 图像金字塔信息
-         * @{
          */
         // Scale pyramid info.
         int mnScaleLevels;      ///<图像金字塔的层数
@@ -423,7 +433,7 @@ namespace ORB_SLAM2
 
         vector<float> mvScaleFactors;    ///<图像金字塔每一层的缩放因子
         vector<float> mvInvScaleFactors; ///<以及上面的这个变量的倒数
-        vector<float> mvLevelSigma2;     ///@todo 目前在frame.c中没有用到，无法下定论
+        vector<float> mvLevelSigma2;     ///? @todo 目前在frame.c中没有用到，无法下定论
         vector<float> mvInvLevelSigma2;  ///<上面变量的倒数
 
         /** @} */
@@ -432,7 +442,6 @@ namespace ORB_SLAM2
         /**
          * @name 用于确定画格子时的边界
          * @note（未校正图像的边界，只需要计算一次，因为是类的静态成员变量）
-         * @{
          */
         static float mnMinX;
         static float mnMaxX;
@@ -442,19 +451,20 @@ namespace ORB_SLAM2
         /** @} */
 
         /**
-         * @brief 一个标志，标记是否已经进行了这些初始化计算
-         * @note 由于第一帧以及SLAM系统进行重新校正后的第一帧会有一些特殊的初始化处理操作，所以这里设置了这个变量. \n
-         * 如果这个标志被置位，说明再下一帧的帧构造函数中要进行这个“特殊的初始化操作”，如果没有被置位则不用。
+         * @brief   一个标志，标记是否已经进行了这些初始化计算
+         *
+         * @note    由于第一帧以及SLAM系统进行重新校正后的第一帧会有一些特殊的初始化处理操作，
+         *          所以这里设置了这个变量.如果这个标志被置位，
+         *          说明再下一帧的帧构造函数中要进行这个“特殊的初始化操作”，如果没有被置位则不用。
+         *          (在构造函数中被调用)
          */
         static bool mbInitialComputations;
 
     private:
         // Undistort keypoints given OpenCV distortion parameters.
-        // Only for the RGB-D case. Stereo must be already rectified!
-        // (called in the constructor).
+        // Only for the RGB-D case. Stereo must be already rectified! (called in the constructor).
         /**
          * @brief 用内参对特征点去畸变，结果报存在mvKeysUn中
-         *
          */
         void UndistortKeyPoints();
 
@@ -469,7 +479,6 @@ namespace ORB_SLAM2
         /**
          * @brief 将提取到的特征点分配到图像网格中 \n
          * @details 该函数由构造函数调用
-         *
          */
         void AssignFeaturesToGrid();
 

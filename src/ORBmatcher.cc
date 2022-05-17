@@ -51,9 +51,7 @@ namespace ORB_SLAM2
     const int ORBmatcher::HISTO_LENGTH = 30;
 
     // 构造函数,参数默认值为0.6,true
-    ORBmatcher::ORBmatcher(float nnratio, bool checkOri) : mfNNratio(nnratio), mbCheckOrientation(checkOri)
-    {
-    }
+    ORBmatcher::ORBmatcher(float nnratio, bool checkOri) : mfNNratio(nnratio), mbCheckOrientation(checkOri) {}
 
     /**
      * @brief 通过投影地图点到当前帧，对Local MapPoint进行跟踪
@@ -119,7 +117,10 @@ namespace ORB_SLAM2
 
             // Get best and second matches with near keypoints
             // Step 4 寻找候选匹配点中的最佳和次佳匹配点
-            for (vector<size_t>::const_iterator vit = vIndices.begin(), vend = vIndices.end(); vit != vend; vit++)
+            for (vector<size_t>::const_iterator
+                     vit = vIndices.begin(),
+                     vend = vIndices.end();
+                 vit != vend; vit++)
             {
                 const size_t idx = *vit;
 
@@ -129,6 +130,7 @@ namespace ORB_SLAM2
                         continue;
 
                 //如果是双目数据
+                // 通过判断 mvuRight[idx] 判断该特征点是否有深度
                 if (F.mvuRight[idx] > 0)
                 {
                     //计算在X轴上的投影误差
