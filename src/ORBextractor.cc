@@ -86,9 +86,10 @@ namespace ORB_SLAM2
 
   /**
    * @brief 用于计算特征点的方向，这里是返回角度作为方向。
-   * 目的 计算特征点方向是为了使得提取的特征点具有旋转不变性。
-   * 方法 灰度质心法： 以几何中心和灰度质心的连线作为该特征点方向
+   * @details 目的 计算特征点方向是为了使得提取的特征点具有旋转不变性。
+   *      方法 灰度质心法： 以几何中心和灰度质心的连线作为该特征点方向
    *                使用特征点周围半径19大小的圆的重心方向作为特征点方向
+   *
    * @param[in] image   要进行操作的某层金字塔图像
    * @param[in] pt      当前特征点的坐标
    * @param[in] u_max   图像块的每一行的坐标边界 u_max
@@ -113,6 +114,7 @@ namespace ORB_SLAM2
     //后面是以中心行为对称轴，成对遍历行数，所以PATCH_SIZE必须是奇数
     for (int u = -HALF_PATCH_SIZE; u <= HALF_PATCH_SIZE; ++u)
       //注意这里的center下标u可以是负的！中心水平线上的像素按x坐标（也就是u坐标）加权
+      // center 是图像圆心的地址，通过u进行左右地址偏移
       m_10 += u * center[u];
 
     // Go line by line in the circular patch
@@ -120,6 +122,7 @@ namespace ORB_SLAM2
     int step = (int)image.step1();
 
     //注意这里是以v=0中心线为对称轴，然后对称地每成对的两行之间进行遍历，这样处理加快了计算速度
+    //对v的求和在这里
     for (int v = 1; v <= HALF_PATCH_SIZE; ++v)
     {
       // Proceed over the two lines
@@ -127,25 +130,31 @@ namespace ORB_SLAM2
       int v_sum = 0;
       // 获取某行像素横坐标的最大范围，注意这里的图像块是圆形的！
       int d = u_max[v];
+
       //在坐标范围内挨个像素遍历，实际是一次遍历2个
       // 假设每次处理的两个点坐标，中心线下方为(x,y),中心线上方为(x,-y)
-      // 对于某次待处理的两个点：m_10 = Σ x*I(x,y) =  x*I(x,y) + x*I(x,-y) =
-      // x*(I(x,y) + I(x,-y)) 对于某次待处理的两个点：m_01 = Σ y*I(x,y) = y*I(x,y)
-      // - y*I(x,-y) = y*(I(x,y) - I(x,-y))
+      // 对于某次待处理的两个点：
+      // （这里只有一层求和 对u的求和 对v的求和在上一层循环）
+      // m_10 = Σ x*I(x,y) = x*I(x,y) + x*I(x,-y) = x*( I(x,y) + I(x,-y) )
+      // m_01 = Σ y*I(x,y) = y*I(x,y) - y*I(x,-y) = y*( I(x,y) - I(x,-y) ) // 减法：因为下面的y是负值
       for (int u = -d; u <= d; ++u)
       {
         //得到需要进行加运算和减运算的像素灰度值
         // val_plus：在中心线下方x=u时的的像素灰度值
         // val_minus：在中心线上方x=u时的像素灰度值
         int val_plus = center[u + v * step], val_minus = center[u - v * step];
+
         //在v（y轴）上，2行所有像素灰度值之差
         v_sum += (val_plus - val_minus);
+
         // u轴（也就是x轴）方向上用u坐标加权和（u坐标也有正负符号），相当于同时计算两行
         m_10 += u * (val_plus + val_minus);
       }
       //将这一行上的和按照y坐标加权
       m_01 += v * v_sum;
     }
+
+    // 至此 m_01 m_10 算完了
 
     //为了加快速度还使用了fastAtan2()函数，输出为[0,360)角度，精度为0.3°
     return fastAtan2((float)m_01, (float)m_10);

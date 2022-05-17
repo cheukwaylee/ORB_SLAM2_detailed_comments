@@ -42,22 +42,39 @@ namespace ORB_SLAM2
 
     //关键帧的构造函数
     KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB)
-        : mnFrameId(F.mnId), mTimeStamp(F.mTimeStamp),
+        : mnFrameId(F.mnId),
+          mTimeStamp(F.mTimeStamp),
           mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS),
           mfGridElementWidthInv(F.mfGridElementWidthInv), mfGridElementHeightInv(F.mfGridElementHeightInv),
-          mnTrackReferenceForFrame(0), mnFuseTargetForKF(0), mnBALocalForKF(0), mnBAFixedForKF(0),
-          mnLoopQuery(0), mnLoopWords(0), mnRelocQuery(0), mnRelocWords(0), mnBAGlobalForKF(0),
+          mnTrackReferenceForFrame(0),
+          mnFuseTargetForKF(0),
+          mnBALocalForKF(0),
+          mnBAFixedForKF(0),
+          mnLoopQuery(0),
+          mnLoopWords(0),
+          mnRelocQuery(0),
+          mnRelocWords(0),
+          mnBAGlobalForKF(0),
           fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy),
           mbf(F.mbf), mb(F.mb), mThDepth(F.mThDepth),
-          N(F.N), mvKeys(F.mvKeys), mvKeysUn(F.mvKeysUn),
-          mvuRight(F.mvuRight), mvDepth(F.mvDepth),
+          N(F.N),
+          mvKeys(F.mvKeys), mvKeysUn(F.mvKeysUn),
+          mvuRight(F.mvuRight),
+          mvDepth(F.mvDepth),
           mDescriptors(F.mDescriptors.clone()),
-          mBowVec(F.mBowVec), mFeatVec(F.mFeatVec), mnScaleLevels(F.mnScaleLevels), mfScaleFactor(F.mfScaleFactor),
-          mfLogScaleFactor(F.mfLogScaleFactor), mvScaleFactors(F.mvScaleFactors), mvLevelSigma2(F.mvLevelSigma2),
-          mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX),
-          mnMaxY(F.mnMaxY), mK(F.mK), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB),
-          mpORBvocabulary(F.mpORBvocabulary), mbFirstConnection(true), mpParent(NULL), mbNotErase(false),
-          mbToBeErased(false), mbBad(false),
+          mBowVec(F.mBowVec), mFeatVec(F.mFeatVec),
+          mnScaleLevels(F.mnScaleLevels),
+          mfScaleFactor(F.mfScaleFactor), mfLogScaleFactor(F.mfLogScaleFactor),
+          mvScaleFactors(F.mvScaleFactors),
+          mvLevelSigma2(F.mvLevelSigma2), mvInvLevelSigma2(F.mvInvLevelSigma2),
+          mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX), mnMaxY(F.mnMaxY),
+          mK(F.mK),
+          mvpMapPoints(F.mvpMapPoints),
+          mpKeyFrameDB(pKFDB),
+          mpORBvocabulary(F.mpORBvocabulary),
+          mbFirstConnection(true),
+          mpParent(NULL),
+          mbNotErase(false), mbToBeErased(false), mbBad(false),
           mHalfBaseline(F.mb / 2), // 计算双目相机长度的一半
           mpMap(pMap)
     {
@@ -70,6 +87,7 @@ namespace ORB_SLAM2
         {
             mGrid[i].resize(mnGridRows);
             for (int j = 0; j < mnGridRows; j++)
+                // vector到vector 的深拷贝
                 mGrid[i][j] = F.mGrid[i][j];
         }
 
@@ -80,7 +98,7 @@ namespace ORB_SLAM2
     // Bag of Words Representation 计算词袋表示
     void KeyFrame::ComputeBoW()
     {
-        // 只有当词袋向量或者节点和特征序号的特征向量为空的时候执行
+        // 只有当 词袋向量 或者 节点和特征序号的特征向量 为空的时候执行
         if (mBowVec.empty() || mFeatVec.empty())
         {
             // 那么就从当前帧的描述子中转换得到词袋信息
@@ -171,12 +189,13 @@ namespace ORB_SLAM2
 
             // 新建或更新连接权重
             if (!mConnectedKeyFrameWeights.count(pKF))
-                // count函数返回0，说明mConnectedKeyFrameWeights中没有pKF，新建连接
+                // count函数返回0，说明mConnectedKeyFrameWeights中没有pKF这个key，新建连接
                 mConnectedKeyFrameWeights[pKF] = weight;
             else if (mConnectedKeyFrameWeights[pKF] != weight)
                 // 之前连接的权重不一样了，需要更新
                 mConnectedKeyFrameWeights[pKF] = weight;
             else
+                // 早已存在且权重值相等 直接返回即可
                 return;
         }
 
@@ -187,29 +206,35 @@ namespace ORB_SLAM2
     /**
      * @brief 按照权重从大到小对连接（共视）的关键帧进行排序
      *
-     * 更新后的变量存储在mvpOrderedConnectedKeyFrames和mvOrderedWeights中
+     * 对 mConnectedKeyFrameWeights 进行排序
+     * 更新后的变量存储在 mvpOrderedConnectedKeyFrames 和 mvOrderedWeights 中
      */
     void KeyFrame::UpdateBestCovisibles()
     {
         // 互斥锁，防止同时操作共享数据产生冲突
         unique_lock<mutex> lock(mMutexConnections);
+
         // http://stackoverflow.com/questions/3389648/difference-between-stdliststdpair-and-stdmap-in-c-stl
         // (std::map 和 std::list<std::pair>的区别)
 
         vector<pair<int, KeyFrame *>> vPairs;
         vPairs.reserve(mConnectedKeyFrameWeights.size());
-        // 取出所有连接的关键帧，mConnectedKeyFrameWeights的类型为std::map<KeyFrame*,int>，
+
+        // 取出所有连接的关键帧， mConnectedKeyFrameWeights 的类型为std::map<KeyFrame*,int>，
         // 而vPairs变量将共视的地图点数放在前面，利于排序
         for (map<KeyFrame *, int>::iterator
                  mit = mConnectedKeyFrameWeights.begin(),
                  mend = mConnectedKeyFrameWeights.end();
-             mit != mend; mit++)
+             mit != mend;
+             mit++)
+            // 交换了 key-value
             vPairs.push_back(make_pair(mit->second, mit->first));
 
         // 按照权重进行排序（默认是从小到大）
         sort(vPairs.begin(), vPairs.end());
 
-        // 为什么要用链表保存？因为插入和删除操作方便，只需要修改上一节点位置，不需要移动其他元素
+        // 为什么要用链表保存？
+        // 因为插入和删除操作方便，只需要修改上一节点位置，不需要移动其他元素
         list<KeyFrame *> lKFs; // 所有连接关键帧
         list<int> lWs;         // 所有连接关键帧对应的权重（共视地图点数目）
         for (size_t i = 0, iend = vPairs.size(); i < iend; i++)
@@ -231,8 +256,12 @@ namespace ORB_SLAM2
         unique_lock<mutex> lock(mMutexConnections);
 
         set<KeyFrame *> s;
-        for (map<KeyFrame *, int>::iterator mit = mConnectedKeyFrameWeights.begin(); mit != mConnectedKeyFrameWeights.end(); mit++)
+
+        for (map<KeyFrame *, int>::iterator mit = mConnectedKeyFrameWeights.begin();
+             mit != mConnectedKeyFrameWeights.end();
+             mit++)
             s.insert(mit->first);
+
         return s;
     }
 
@@ -276,20 +305,22 @@ namespace ORB_SLAM2
             return vector<KeyFrame *>();
 
         // http://www.cplusplus.com/reference/algorithm/upper_bound/
-        // 从mvOrderedWeights找出第一个大于w的那个迭代器
-        vector<int>::iterator it = upper_bound(mvOrderedWeights.begin(), //起点
-                                               mvOrderedWeights.end(),   //终点
-                                               w,                        //目标阈值
-                                               KeyFrame::weightComp);    //比较函数从大到小排序
+        // 从 mvOrderedWeights 找出第一个大于w的那个迭代器
+        vector<int>::iterator it =
+            upper_bound(mvOrderedWeights.begin(), //起点
+                        mvOrderedWeights.end(),   //终点
+                        w,                        //目标阈值
+                        KeyFrame::weightComp);    //比较函数从大到小排序
 
-        // 如果没有找到，说明最大的权重也比给定的阈值小，返回空
+        // 如果没有找到，说明最大的权重 也比 给定的阈值小，返回空
         if (it == mvOrderedWeights.end() && *mvOrderedWeights.rbegin() < w)
             return vector<KeyFrame *>();
         else
         {
             // 如果存在，返回满足要求的关键帧
-            int n = it - mvOrderedWeights.begin();
-            return vector<KeyFrame *>(mvpOrderedConnectedKeyFrames.begin(), mvpOrderedConnectedKeyFrames.begin() + n);
+            int n = it - mvOrderedWeights.begin(); // 符合条件的迭代器减去头指针 等于 地址偏移量
+            return vector<KeyFrame *>(mvpOrderedConnectedKeyFrames.begin(),
+                                      mvpOrderedConnectedKeyFrames.begin() + n);
         }
     }
 
@@ -309,26 +340,31 @@ namespace ORB_SLAM2
     void KeyFrame::AddMapPoint(MapPoint *pMP, const size_t &idx)
     {
         unique_lock<mutex> lock(mMutexFeatures);
+
         mvpMapPoints[idx] = pMP;
     }
 
     /**
      * @brief 由于其他的原因,导致当前关键帧观测到的某个地图点被删除(bad==true)了,将该地图点置为NULL
+     * 按索引号删除
      *
      * @param[in] idx   地图点在该关键帧中的id
      */
     void KeyFrame::EraseMapPointMatch(const size_t &idx)
     {
         unique_lock<mutex> lock(mMutexFeatures);
+
         // NOTE 使用这种方式表示其中的某个地图点被删除
         mvpMapPoints[idx] = static_cast<MapPoint *>(NULL);
     }
 
     // 同上
+    // 按地图点删除
     void KeyFrame::EraseMapPointMatch(MapPoint *pMP)
     {
         //获取当前地图点在某个关键帧的观测中，对应的特征点的索引，如果没有观测，索引为-1
         int idx = pMP->GetIndexInKeyFrame(this);
+
         if (idx >= 0)
             // 把当前KF观测到的mp向量中要删除的那个置为nullptr
             mvpMapPoints[idx] = static_cast<MapPoint *>(NULL);
@@ -366,19 +402,19 @@ namespace ORB_SLAM2
 
         int nPoints = 0;
         // 是否检查数目
-        const bool bCheckObs = minObs > 0;
-        
+        const bool bCheckObs = (minObs > 0);
+
         // N是当前帧中特征点的个数
         for (int i = 0; i < N; i++)
         {
             MapPoint *pMP = mvpMapPoints[i];
 
             // 依次检查该地图点物理上和逻辑上是否删除,若删除了就不对其操作
-            if (pMP) //没有被删除
+            if (pMP) //没有被删除 且 不是空指针（遍历的是特征点，特征点如果没有构造成地图点，保存的是空指针）
             {
                 if (!pMP->isBad()) //并且不是坏点
                 {
-                    if (bCheckObs)
+                    if (bCheckObs) // 有最低观测要求
                     {
                         // 满足输入阈值要求的地图点计数加1
                         if (mvpMapPoints[i]->Observations() >= minObs)
@@ -414,46 +450,55 @@ namespace ORB_SLAM2
      *    对每一个找到的关键帧，建立一条边，边的权重是该关键帧与当前关键帧公共3d点的个数。
      * 2. 并且该权重必须大于一个阈值，如果没有超过该阈值的权重，那么就只保留权重最大的边（与其它关键帧的共视程度比较高）
      * 3. 对这些连接按照权重从大到小进行排序，以方便将来的处理
-     *    更新完covisibility图之后，如果没有初始化过，则初始化为连接权重最大的边（与其它关键帧共视程度最高的那个关键帧），类似于最大生成树
+     *    更新完covisibility图之后，如果没有初始化过，
+     *    则初始化为连接权重最大的边（与其它关键帧共视程度最高的那个关键帧），类似于最大生成树
      */
     void KeyFrame::UpdateConnections()
     {
-        // 关键帧-权重，权重为其它关键帧与当前关键帧共视地图点的个数，也称为共视程度
+        // 关键帧-权重，权重:其它关键帧与当前关键帧共视地图点的个数，也称为共视程度
         map<KeyFrame *, int> KFcounter;
         vector<MapPoint *> vpMP;
 
         {
-            // 获得该关键帧的所有地图点
+            // 获取当前关键帧观测到的所有地图点
             unique_lock<mutex> lockMPs(mMutexFeatures);
             vpMP = mvpMapPoints;
         }
 
         // For all map points in keyframe check in which other keyframes are they seen
         // Increase counter for those keyframes
-        //  Step 1 通过地图点被关键帧观测来间接统计关键帧之间的共视程度
-        //  统计每一个地图点都有多少关键帧与当前关键帧存在共视关系，统计结果放在KFcounter
-        for (vector<MapPoint *>::iterator vit = vpMP.begin(), vend = vpMP.end(); vit != vend; vit++)
+        //  Step 1 通过地图点被关键帧观测 来间接统计 关键帧之间的共视程度
+        //  统计每一个地图点（遍历）都有多少关键帧与当前关键帧存在共视关系，统计结果放在KFcounter
+        for (vector<MapPoint *>::iterator
+                 vit = vpMP.begin(),
+                 vend = vpMP.end();
+             vit != vend; vit++) // 遍历这些地图点
         {
             MapPoint *pMP = *vit;
 
             if (!pMP)
                 continue;
-
             if (pMP->isBad())
                 continue;
 
             // 对于每一个地图点，observations记录了可以观测到该地图点的所有关键帧
+            // （这个地图点被哪些关键帧 and 这个关键帧的第几号特征点 观测到）
             map<KeyFrame *, size_t> observations = pMP->GetObservations();
 
-            for (map<KeyFrame *, size_t>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+            for (map<KeyFrame *, size_t>::iterator
+                     mit = observations.begin(),
+                     mend = observations.end();
+                 mit != mend; mit++) // 遍历当前地图点被观测到的关键帧
             {
                 // 除去自身，自己与自己不算共视
-                if (mit->first->mnId == mnId)
+                if (mit->first->mnId == mnId) // 帧id相等
                     continue;
+
                 // 这里的操作非常精彩！
                 // map[key] = value，当要插入的键存在时，会覆盖键对应的原来的值。如果键不存在，则添加一组键值对
                 // mit->first 是地图点看到的关键帧，同一个关键帧看到的地图点会累加到该关键帧计数
-                // 所以最后KFcounter 第一个参数表示某个关键帧，第2个参数表示该关键帧看到了多少当前帧的地图点，也就是共视程度
+                // 所以最后KFcounter 第1个参数表示某个关键帧，
+                //           第2个参数表示该关键帧看到了多少当前帧的地图点，也就是共视程度
                 KFcounter[mit->first]++;
             }
         }
@@ -465,8 +510,11 @@ namespace ORB_SLAM2
 
         // If the counter is greater than threshold add connection
         // In case no keyframe counter is over threshold add the one with maximum counter
-        int nmax = 0; // 记录最高的共视程度
+
+        // 记录最高的共视程度
+        int nmax = 0;
         KeyFrame *pKFmax = NULL;
+
         // 至少有15个共视地图点才会添加共视关系
         int th = 15;
 
@@ -474,13 +522,17 @@ namespace ORB_SLAM2
         // pair<int,KeyFrame*>将关键帧的权重写在前面，关键帧写在后面方便后面排序
         vector<pair<int, KeyFrame *>> vPairs;
         vPairs.reserve(KFcounter.size());
+
         // Step 2 找到对应权重最大的关键帧（共视程度最高的关键帧）
-        for (map<KeyFrame *, int>::iterator mit = KFcounter.begin(), mend = KFcounter.end(); mit != mend; mit++)
+        for (map<KeyFrame *, int>::iterator
+                 mit = KFcounter.begin(),
+                 mend = KFcounter.end();
+             mit != mend; mit++)
         {
             if (mit->second > nmax)
             {
-                nmax = mit->second;
-                pKFmax = mit->first;
+                nmax = mit->second;  // 共视程度
+                pKFmax = mit->first; // 关键帧
             }
 
             // 建立共视关系至少需要大于等于th个共视地图点
@@ -488,9 +540,10 @@ namespace ORB_SLAM2
             {
                 // 对应权重需要大于阈值，对这些关键帧建立连接
                 vPairs.push_back(make_pair(mit->second, mit->first));
-                // 对方关键帧也要添加这个信息
-                // 更新KFcounter中该关键帧的mConnectedKeyFrameWeights
-                // 更新其它KeyFrame的mConnectedKeyFrameWeights，更新其它关键帧与当前帧的连接权重
+
+                // 对方关键帧（与当前关键帧由于共视地图点找到的另外的关键帧）也要添加这个信息
+                // 更新KFcounter中该关键帧的 mConnectedKeyFrameWeights
+                // 更新其它 KeyFrame 的 mConnectedKeyFrameWeights ，更新其它关键帧与当前帧的连接权重
                 (mit->first)->AddConnection(this, mit->second);
             }
         }
@@ -499,7 +552,7 @@ namespace ORB_SLAM2
         if (vPairs.empty())
         {
             // 如果每个关键帧与它共视的关键帧的个数都少于th，
-            // 那就只更新与其它关键帧共视程度最高的关键帧的mConnectedKeyFrameWeights
+            // 那就只更新与其它关键帧共视程度最高的关键帧的 mConnectedKeyFrameWeights
             // 这是对之前th这个阈值可能过高的一个补丁
             vPairs.push_back(make_pair(nmax, pKFmax));
             pKFmax->AddConnection(this, nmax);
@@ -508,6 +561,7 @@ namespace ORB_SLAM2
         //  Step 4 对满足共视程度的关键帧对更新连接关系及权重（从大到小）
         // vPairs里存的都是相互共视程度比较高的关键帧和共视权重，接下来由大到小进行排序
         sort(vPairs.begin(), vPairs.end()); // sort函数默认升序排列
+
         // 将排序后的结果分别组织成为两种数据类型
         list<KeyFrame *> lKFs;
         list<int> lWs;
@@ -523,15 +577,17 @@ namespace ORB_SLAM2
 
             // mspConnectedKeyFrames = spConnectedKeyFrames;
             // 更新当前帧与其它关键帧的连接权重
-            mConnectedKeyFrameWeights = KFcounter;
-            mvpOrderedConnectedKeyFrames = vector<KeyFrame *>(lKFs.begin(), lKFs.end());
-            mvOrderedWeights = vector<int>(lWs.begin(), lWs.end());
+            mConnectedKeyFrameWeights = KFcounter;                                       // 无序
+            mvpOrderedConnectedKeyFrames = vector<KeyFrame *>(lKFs.begin(), lKFs.end()); // 有序
+            mvOrderedWeights = vector<int>(lWs.begin(), lWs.end());                      // 有序
 
             // Step 5 更新生成树的连接
             if (mbFirstConnection && mnId != 0)
             {
                 // 初始化该关键帧的父关键帧为共视程度最高的那个关键帧
+                // Returns a reference to the first element in the vector.
                 mpParent = mvpOrderedConnectedKeyFrames.front();
+
                 // 建立双向连接关系，将当前关键帧作为其子关键帧
                 mpParent->AddChild(this);
                 mbFirstConnection = false;
@@ -559,6 +615,7 @@ namespace ORB_SLAM2
         unique_lock<mutex> lockCon(mMutexConnections);
         // 添加双向连接关系
         mpParent = pKF;
+        // 变更当前关键帧的爸爸：给新爸爸赋予当前儿子
         pKF->AddChild(this);
     }
 
@@ -577,7 +634,7 @@ namespace ORB_SLAM2
         return mpParent;
     }
 
-    // 判断某个关键帧是否是当前关键帧的子关键帧
+    // 判断 某个关键帧 是否是 当前关键帧的子关键帧
     bool KeyFrame::hasChild(KeyFrame *pKF)
     {
         unique_lock<mutex> lockCon(mMutexConnections);
@@ -588,6 +645,7 @@ namespace ORB_SLAM2
     void KeyFrame::AddLoopEdge(KeyFrame *pKF)
     {
         unique_lock<mutex> lockCon(mMutexConnections);
+        // 赋予人大代表特权
         mbNotErase = true;
         mspLoopEdges.insert(pKF);
     }
@@ -607,8 +665,7 @@ namespace ORB_SLAM2
     }
 
     /**
-     * @brief 删除当前的这个关键帧,表示不进行回环检测过程;由回环检测线程调用
-     *
+     * @brief 删除当前的这个关键帧,表示不进行回环检测过程; 由回环检测线程调用
      */
     void KeyFrame::SetErase()
     {
@@ -618,11 +675,13 @@ namespace ORB_SLAM2
             // 如果当前关键帧和其他的关键帧没有形成回环关系,那么就删吧
             if (mspLoopEdges.empty())
             {
+                // 撤销人大代表常委特权
                 mbNotErase = false;
             }
         }
 
         // mbToBeErased：删除之前记录的想要删但时机不合适没有删除的帧
+        // 人大常委下马后 看看要不要秋后算账
         if (mbToBeErased)
         {
             SetBadFlag();
@@ -630,12 +689,16 @@ namespace ORB_SLAM2
     }
 
     /**
-     * @brief 真正地执行删除关键帧的操作
-     * 需要删除的是该关键帧和其他所有帧、地图点之间的连接关系
+     * @brief 真正地执行删除当前关键帧的操作
+     * 需要删除的是 该关键帧 和 其他所有帧、地图点之间的连接关系
      *
-     * mbNotErase作用：表示要删除该关键帧及其连接关系但是这个关键帧有可能正在回环检测或者计算sim3操作，这时候虽然这个关键帧冗余，但是却不能删除，
-     * 仅设置mbNotErase为true，这时候调用setbadflag函数时，不会将这个关键帧删除，只会把mbTobeErase变成true，代表这个关键帧可以删除但不到时候,先记下来以后处理。
-     * 在闭环线程里调用 SetErase()会根据mbToBeErased 来删除之前可以删除还没删除的帧。
+     * mbNotErase作用： 表示要删除该关键帧及其连接关系但是这个关键帧有可能正在回环检测或者计算sim3操作，
+     *          这时候虽然这个关键帧冗余，但是却不能删除（人大常委特权），
+     *          仅设置mbNotErase为true，这时候调用setbadflag函数时，
+     *          不会将这个关键帧删除，只会把mbToBeErased变成true（人大常委在位期间的黑账本），
+     *          代表这个关键帧可以删除但不到时候,先记下来以后处理。
+     *
+     * 在闭环线程里调用 SetErase()会根据 mbToBeErased 来删除之前可以删除还没删除的帧（人大常委下马后 看看要不要秋后算账）。
      */
     void KeyFrame::SetBadFlag()
     {
@@ -648,14 +711,18 @@ namespace ORB_SLAM2
                 return;
             else if (mbNotErase)
             {
-                // mbNotErase表示不应该删除，于是把mbToBeErased置为true，假装已经删除，其实没有删除
+                // mbNotErase表示不应该删除，（人大常委特权）
+                // 于是把mbToBeErased置为true，假装已经删除，其实没有删除（人大常委在位期间的黑账本）
                 mbToBeErased = true;
                 return;
             }
         }
 
         // Step 2 遍历所有和当前关键帧相连的关键帧，删除他们与当前关键帧的联系
-        for (map<KeyFrame *, int>::iterator mit = mConnectedKeyFrameWeights.begin(), mend = mConnectedKeyFrameWeights.end(); mit != mend; mit++)
+        for (map<KeyFrame *, int>::iterator
+                 mit = mConnectedKeyFrameWeights.begin(),
+                 mend = mConnectedKeyFrameWeights.end();
+             mit != mend; mit++)
             mit->first->EraseConnection(this); // 让其它的关键帧删除与自己的联系
 
         // Step 3 遍历每一个当前关键帧的地图点，删除每一个地图点和当前关键帧的联系
@@ -664,6 +731,7 @@ namespace ORB_SLAM2
                 mvpMapPoints[i]->EraseObservation(this);
 
         {
+            // step 4. 删除共视图
             unique_lock<mutex> lock(mMutexConnections);
             unique_lock<mutex> lock1(mMutexFeatures);
 
@@ -672,16 +740,18 @@ namespace ORB_SLAM2
             mvpOrderedConnectedKeyFrames.clear();
 
             // Update Spanning Tree
-            // Step 4 更新生成树，主要是处理好父子关键帧，不然会造成整个关键帧维护的图断裂，或者混乱
+            // Step 4 更新生成树：主要是处理好父子关键帧，不然会造成整个关键帧维护的图断裂（局部闭环行程孤岛），或者混乱
             // 候选父关键帧
             set<KeyFrame *> sParentCandidates;
-            // 将当前帧的父关键帧放入候选父关键帧
+            // 将 当前帧的父关键帧 放入 候选父关键帧
             sParentCandidates.insert(mpParent);
 
-            // Assign at each iteration one children with a parent (the pair with highest covisibility weight)
+            // Assign at each iteration one children with a parent
+            // (the pair with highest covisibility weight)
             // Include that children as new parent candidate for the rest
-            // 每迭代一次就为其中一个子关键帧寻找父关键帧（最高共视程度），找到父的子关键帧可以作为其他子关键帧的候选父关键帧
-            while (!mspChildrens.empty())
+            // 每迭代一次就为其中一个子关键帧寻找父关键帧（最高共视程度），
+            // 找到父的子关键帧可以作为其他子关键帧的候选父关键帧
+            while (!mspChildrens.empty()) // 循环直到孤儿组为空
             {
                 bool bContinue = false;
 
@@ -689,27 +759,39 @@ namespace ORB_SLAM2
                 KeyFrame *pC;
                 KeyFrame *pP;
 
-                // Step 4.1 遍历每一个子关键帧，让它们更新它们指向的父关键帧
-                for (set<KeyFrame *>::iterator sit = mspChildrens.begin(), send = mspChildrens.end(); sit != send; sit++)
+                // Step 4.1 遍历每一个当前关键帧（被删除）的子关键帧，让它们更新它们指向的父关键帧（找新爸爸）
+                for (set<KeyFrame *>::iterator
+                         sit = mspChildrens.begin(),
+                         send = mspChildrens.end();
+                     sit != send; sit++)
                 {
-                    KeyFrame *pKF = *sit;
+                    KeyFrame *pKF = *sit; // 当前遍历到的失去了爸爸的孤儿
+
                     // 跳过无效的子关键帧
                     if (pKF->isBad())
                         continue;
 
                     // Check if a parent candidate is connected to the keyframe
                     // Step 4.2 子关键帧遍历每一个与它共视的关键帧
-                    vector<KeyFrame *> vpConnected = pKF->GetVectorCovisibleKeyFrames();
+                    vector<KeyFrame *> vpConnected = // 和孤儿共视的关键帧
+                        pKF->GetVectorCovisibleKeyFrames();
 
                     for (size_t i = 0, iend = vpConnected.size(); i < iend; i++)
                     {
                         // sParentCandidates 中刚开始存的是这里子关键帧的“爷爷”，也是当前关键帧的候选父关键帧
-                        for (set<KeyFrame *>::iterator spcit = sParentCandidates.begin(), spcend = sParentCandidates.end(); spcit != spcend; spcit++)
+                        for (set<KeyFrame *>::iterator
+                                 spcit = sParentCandidates.begin(),
+                                 spcend = sParentCandidates.end();
+                             spcit != spcend; spcit++)
                         {
-                            // Step 4.3 如果孩子和sParentCandidates中有共视，选择共视最强的那个作为新的父
+                            // Step 4.3 如果 孩子 和 sParentCandidates 中有共视，选择共视最强的那个作为新的父
                             if (vpConnected[i]->mnId == (*spcit)->mnId)
+                            // 孤儿的共视关键帧 里面有 候选爸爸
+                            //? 这里怎么可能？？明明是不同的帧
                             {
+                                // 孤儿 和 它的共视 之间的共视程度
                                 int w = pKF->GetWeight(vpConnected[i]);
+                                
                                 // 寻找并更新权值最大的那个共视关系
                                 if (w > max)
                                 {
@@ -725,7 +807,7 @@ namespace ORB_SLAM2
 
                 // Step 4.4 如果在上面的过程中找到了新的父节点
                 // 下面代码应该放到遍历子关键帧循环中?
-                // 回答：不需要！这里while循环还没退出，会使用更新的sParentCandidates
+                // 回答：不需要！这里while循环还没退出，会使用更新的 sParentCandidates
                 if (bContinue)
                 {
                     // 因为父节点死了，并且子节点找到了新的父节点，就把它更新为自己的父节点
@@ -742,13 +824,16 @@ namespace ORB_SLAM2
             // If a children has no covisibility links with any parent candidate, assign to the original parent of this KF
             // Step 4.5 如果还有子节点没有找到新的父节点
             if (!mspChildrens.empty())
-                for (set<KeyFrame *>::iterator sit = mspChildrens.begin(); sit != mspChildrens.end(); sit++)
+                for (set<KeyFrame *>::iterator
+                         sit = mspChildrens.begin();
+                     sit != mspChildrens.end(); sit++)
                 {
                     // 直接把父节点的父节点作为自己的父节点 即对于这些子节点来说,他们的新的父节点其实就是自己的爷爷节点
                     (*sit)->ChangeParent(mpParent);
                 }
 
             mpParent->EraseChild(this);
+
             // mTcp 表示原父关键帧到当前关键帧的位姿变换，在保存位姿的时候使用
             mTcp = Tcw * mpParent->GetPoseInverse();
             // 标记当前关键帧已经挂了
@@ -768,7 +853,7 @@ namespace ORB_SLAM2
         return mbBad;
     }
 
-    // 删除当前关键帧和指定关键帧之间的共视关系
+    // 删除 当前关键帧 和 指定关键帧 之间的共视关系
     void KeyFrame::EraseConnection(KeyFrame *pKF)
     {
         // 其实这个应该表示是否真的是有共视关系
@@ -785,12 +870,12 @@ namespace ORB_SLAM2
         }
         // 程序运行到这里就释放锁,后面的操作不需要抢到锁就能执行
 
-        // 如果是真的有共视关系,那么删除之后就要更新共视关系
+        // 如果是真的有共视关系（被清除）,那么删除之后就要更新共视关系
         if (bUpdate)
             UpdateBestCovisibles();
     }
 
-    // 获取某个特征点的邻域中的特征点id,其实这个和 Frame.cc 中的那个函数基本上都是一致的; r为边长（半径）
+    // 获取某个特征点的邻域中的特征点id, 其实这个和 Frame.cc 中的那个函数基本上都是一致的; r为边长（半径）
     vector<size_t> KeyFrame::GetFeaturesInArea(const float &x, const float &y, const float &r) const
     {
         vector<size_t> vIndices;
@@ -798,7 +883,7 @@ namespace ORB_SLAM2
 
         // 计算要搜索的cell的范围
 
-        // floor向下取整，mfGridElementWidthInv 为每个像素占多少个格子
+        // floor向下取整， mfGridElementWidthInv 为每个像素占多少个格子
         const int nMinCellX = max(0, (int)floor((x - mnMinX - r) * mfGridElementWidthInv));
         if (nMinCellX >= mnGridCols)
             return vIndices;
@@ -822,7 +907,7 @@ namespace ORB_SLAM2
             for (int iy = nMinCellY; iy <= nMaxCellY; iy++)
             {
                 const vector<size_t> vCell = mGrid[ix][iy];
-                for (size_t j = 0, jend = vCell.size(); j < jend; j++)
+                for (size_t j = 0, jend = vCell.size(); j < jend; j++) // 遍历当前各自里面的特征点
                 {
                     const cv::KeyPoint &kpUn = mvKeysUn[vCell[j]];
                     const float distx = kpUn.pt.x - x;
@@ -872,8 +957,10 @@ namespace ORB_SLAM2
             return cv::Mat();
     }
 
-    // Compute Scene Depth (q=2 median). Used in monocular. 评估当前关键帧场景深度，q=2表示中值. 只是在单目情况下才会使用
-    // 其实过程就是对当前关键帧下所有地图点的深度进行从小到大排序,返回距离头部其中1/q处的深度值作为当前场景的平均深度
+    // Compute Scene Depth (q=2 median). Used in monocular.
+    // 评估当前关键帧场景深度，q=2表示中值. 只是在单目情况下才会使用
+    // 其实过程就是对当前关键帧下所有地图点的深度进行从小到大排序,
+    // 返回距离头部其中1/q处的深度值作为当前场景的平均深度
     float KeyFrame::ComputeSceneMedianDepth(const int q)
     {
         vector<MapPoint *> vpMapPoints;
@@ -887,9 +974,12 @@ namespace ORB_SLAM2
 
         vector<float> vDepths;
         vDepths.reserve(N);
+
         cv::Mat Rcw2 = Tcw_.row(2).colRange(0, 3);
         Rcw2 = Rcw2.t();
-        float zcw = Tcw_.at<float>(2, 3);
+
+        float zcw = Tcw_.at<float>(2, 3); // trans z
+
         // 遍历每一个地图点,计算并保存其在当前关键帧下的深度
         for (int i = 0; i < N; i++)
         {
@@ -897,7 +987,11 @@ namespace ORB_SLAM2
             {
                 MapPoint *pMP = mvpMapPoints[i];
                 cv::Mat x3Dw = pMP->GetWorldPos();
-                float z = Rcw2.dot(x3Dw) + zcw; // (R*x3Dw+t)的第三行，即z
+
+                // mappoint wrt world 转到 wrt cam， 而且只取z
+                // (R*x3Dw+t)的第三行，即z
+                float z = Rcw2.dot(x3Dw) + zcw;
+
                 vDepths.push_back(z);
             }
         }

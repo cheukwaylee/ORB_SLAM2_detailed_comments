@@ -52,8 +52,7 @@ namespace ORB_SLAM2
 
     /**
      * @brief 关键帧类
-     * @detials 关键帧，和普通的Frame不一样，但是可以由Frame来构造; 许多数据会被三个线程同时访问，所以用锁的地方很普遍
-     *
+     * @details 关键帧，和普通的Frame不一样，但是可以由Frame来构造; 许多数据会被三个线程同时访问，所以用锁的地方很普遍
      */
     class KeyFrame
     {
@@ -83,7 +82,7 @@ namespace ORB_SLAM2
 
         /**
          * @brief Bag of Words Representation
-         * @detials 计算mBowVec，并且将描述子分散在第4层上，即mFeatVec记录了属于第i个node的ni个描述子
+         * @details 计算mBowVec，并且将描述子分散在第4层上，即mFeatVec记录了属于第i个node的ni个描述子
          * @see ProcessNewKeyFrame()
          */
         void ComputeBoW();
@@ -97,41 +96,51 @@ namespace ORB_SLAM2
          * @param weight 权重，该关键帧与pKF共同观测到的3d点数量
          */
         void AddConnection(KeyFrame *pKF, const int &weight);
+
         /**
          * @brief 删除当前关键帧和指定关键帧之间的共视关系
          * @param[in] pKF 要删除的共视关系
          */
         void EraseConnection(KeyFrame *pKF);
+
         /** @brief 更新图的连接  */
         void UpdateConnections();
+
         /**
          * @brief 按照权重对连接的关键帧进行排序
-         * @detials 更新后的变量存储在mvpOrderedConnectedKeyFrames和mvOrderedWeights中
+         * @details 更新后的变量存储在
+         *      mvpOrderedConnectedKeyFrames 和 mvOrderedWeights 中
          */
         void UpdateBestCovisibles();
+
         /**
          * @brief 得到与该关键帧连接的关键帧(没有排序的)
          * @return 连接的关键帧
          */
         std::set<KeyFrame *> GetConnectedKeyFrames();
+
         /**
-         * @brief 得到与该关键帧连接的关键帧(已按权值排序)
+         * @brief 得到与该关键帧连接（共视）的关键帧(已按权值排序)
          * @return 连接的关键帧
          */
         std::vector<KeyFrame *> GetVectorCovisibleKeyFrames();
+
         /**
          * @brief 得到与该关键帧连接的前N个关键帧(已按权值排序)
-         * NOTICE 如果连接的关键帧少于N，则返回所有连接的关键帧,所以说返回的关键帧的数目其实不一定是N个
+         * NOTICE 如果连接的关键帧少于N，则返回所有连接的关键帧,
+         *     所以说返回的关键帧的数目其实不一定是N个
          * @param N 前N个
          * @return 连接的关键帧
          */
         std::vector<KeyFrame *> GetBestCovisibilityKeyFrames(const int &N);
+
         /**
          * @brief 得到与该关键帧连接的权重大于等于w的关键帧
          * @param w 权重
          * @return 连接的关键帧
          */
         std::vector<KeyFrame *> GetCovisiblesByWeight(const int &w);
+
         /**
          * @brief 得到该关键帧与pKF的权重
          * @param  pKF 关键帧
@@ -141,30 +150,36 @@ namespace ORB_SLAM2
 
         // ========================= Spanning tree functions =======================
         /**
-         * @brief 添加子关键帧（即和子关键帧具有最大共视关系的关键帧就是当前关键帧）
+         * @brief 添加子关键帧
+         *     （即 和子关键帧具有最大共视关系的关键帧 就是当前关键帧）
          * @param[in] pKF 子关键帧句柄
          */
         void AddChild(KeyFrame *pKF);
+
         /**
          * @brief 删除某个子关键帧
          * @param[in] pKF 子关键帧句柄
          */
         void EraseChild(KeyFrame *pKF);
+
         /**
          * @brief 改变当前关键帧的父关键帧
          * @param[in] pKF 父关键帧句柄
          */
         void ChangeParent(KeyFrame *pKF);
+
         /**
-         * @brief 获取获取当前关键帧的子关键帧
-         * @return std::set<KeyFrame*>  子关键帧集合
+         * @brief 获取当前关键帧的子关键帧
+         * @return std::set<KeyFrame*> 子关键帧集合
          */
         std::set<KeyFrame *> GetChilds();
+
         /**
          * @brief 获取当前关键帧的父关键帧
          * @return KeyFrame* 父关键帧句柄
          */
         KeyFrame *GetParent();
+
         /**
          * @brief 判断某个关键帧是否是当前关键帧的子关键帧
          * @param[in] pKF 关键帧句柄
@@ -179,6 +194,7 @@ namespace ORB_SLAM2
          * @param[in] pKF  和当前关键帧形成闭环关系的关键帧
          */
         void AddLoopEdge(KeyFrame *pKF);
+
         /**
          * @brief 获取和当前关键帧形成闭环关系的关键帧
          * @return std::set<KeyFrame*> 结果
@@ -192,39 +208,50 @@ namespace ORB_SLAM2
          * @param idx MapPoint在KeyFrame中的索引
          */
         void AddMapPoint(MapPoint *pMP, const size_t &idx);
+
         /**
-         * @brief 由于其他的原因,导致当前关键帧观测到的某个地图点被删除(bad==true)了,这里是"通知"当前关键帧这个地图点已经被删除了
+         * @brief 由于其他的原因,导致当前关键帧观测到的某个地图点被删除(bad==true)了,
+         *     这里是"通知"当前关键帧这个地图点已经被删除了
          * @param[in] idx 被删除的地图点索引
          */
         void EraseMapPointMatch(const size_t &idx);
+
         /**
-         * @brief 由于其他的原因,导致当前关键帧观测到的某个地图点被删除(bad==true)了,这里是"通知"当前关键帧这个地图点已经被删除了
+         * @brief 由于其他的原因,导致当前关键帧观测到的某个地图点被删除(bad==true)了,
+         *     这里是"通知"当前关键帧这个地图点已经被删除了
          * @param[in] pMP 被删除的地图点指针
          */
         void EraseMapPointMatch(MapPoint *pMP);
+
         /**
          * @brief 地图点的替换
          * @param[in] idx 要替换掉的地图点的索引
          * @param[in] pMP 新地图点的指针
          */
         void ReplaceMapPointMatch(const size_t &idx, MapPoint *pMP);
+
         /**
          * @brief 获取当前帧中的所有地图点
+         * 检查了是否为空/是否被删除/是否换点再输出
          * @return std::set<MapPoint*> 所有的地图点
          */
         std::set<MapPoint *> GetMapPoints();
-        /**
+
+        /** //? 和上面的有什么区别？
          * @brief Get MapPoint Matches
+         * 直接输出mvpMapPoints
          *     获取该关键帧的MapPoints
          */
         std::vector<MapPoint *> GetMapPointMatches();
+
         /**
          * @brief 关键帧中，大于等于minObs的MapPoints的数量
          * @details minObs就是一个阈值，大于minObs就表示该MapPoint是一个高质量的MapPoint \n
-         * 一个高质量的MapPoint会被多个KeyFrame观测到.
+         *      一个高质量的MapPoint会被多个KeyFrame观测到.
          * @param  minObs 最小观测
          */
         int TrackedMapPoints(const int &minObs);
+
         /**
          * @brief 获取获取当前关键帧的具体的某个地图点
          * @param[in] idx id
@@ -241,6 +268,7 @@ namespace ORB_SLAM2
          * @return std::vector<size_t> 在这个邻域内找到的特征点索引的集合
          */
         std::vector<size_t> GetFeaturesInArea(const float &x, const float &y, const float &r) const;
+
         /**
          * @brief Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
          * @param  i 第i个keypoint
@@ -259,7 +287,8 @@ namespace ORB_SLAM2
         bool IsInImage(const float &x, const float &y) const;
 
         // Enable/Disable bad flag changes
-        /** @brief 设置当前关键帧不要在优化的过程中被删除  */
+        /** @brief 设置当前关键帧不要在优化的过程中被删除
+         * （赋予人大常委特权：参与回环检测的关键帧具有不被删除的特权） */
         void SetNotErase();
         /** @brief 准备删除当前的这个关键帧,表示不进行回环检测过程;由回环检测线程调用 */
         void SetErase();
@@ -278,6 +307,10 @@ namespace ORB_SLAM2
          */
         float ComputeSceneMedianDepth(const int q);
 
+        /**
+         * 静态方法可以直接调用，类名调用和对象调用。（类名.方法名 / 对象名.方法名）
+         */
+
         /// 比较两个int型权重的大小的比较函数
         static bool weightComp(int a, int b)
         {
@@ -289,7 +322,7 @@ namespace ORB_SLAM2
             return pKF1->mnId < pKF2->mnId;
         }
 
-        // The following variables are accesed from only 1 thread or never change (no mutex needed).
+        // The following variables are accessed from only 1 thread or never change (no mutex needed).
     public:
         /// nNextID名字改为nLastID更合适，表示上一个KeyFrame的ID号
         static long unsigned int nNextId;
@@ -314,7 +347,8 @@ namespace ORB_SLAM2
         long unsigned int mnFuseTargetForKF;        ///< 标记在局部建图线程中,和哪个关键帧进行融合的操作
 
         // Variables used by the local mapping
-        // local mapping中记录当前处理的关键帧的mnId，表示当前局部BA的关键帧id。mnBALocalForKF 在map point.h里面也有同名的变量。
+        // local mapping中记录当前处理的关键帧的mnId，表示当前局部BA的关键帧id。
+        // mnBALocalForKF 在map point.h里面也有同名的变量。
         long unsigned int mnBALocalForKF;
         // local mapping中记录当前处理的关键帧的mnId, 只是提供约束信息但是却不会去优化这个关键帧
         long unsigned int mnBAFixedForKF;
@@ -401,12 +435,13 @@ namespace ORB_SLAM2
         /// 词袋对象
         ORBVocabulary *mpORBvocabulary;
 
-        /// Grid over the image to speed up feature matching ,其实应该说是二维的,第三维的 vector中保存的是这个网格内的特征点的索引
+        /// Grid over the image to speed up feature matching ,
+        // 其实应该说是二维的, 第三维的vector中保存的是这个网格内的特征点的索引
         std::vector<std::vector<std::vector<size_t>>> mGrid;
 
         // Covisibility Graph
         // 与该关键帧连接（至少15个共视地图点）的关键帧与权重
-        std::map<KeyFrame *, int> mConnectedKeyFrameWeights;
+        std::map<KeyFrame *, int> mConnectedKeyFrameWeights; // 无序，排序之后是下面两个
         // 共视关键帧中权重从大到小排序后的关键帧
         std::vector<KeyFrame *> mvpOrderedConnectedKeyFrames;
         // 共视关键帧中从大到小排序后的权重，和上面对应
@@ -416,23 +451,23 @@ namespace ORB_SLAM2
         // std::set是集合，相比vector，进行插入数据这样的操作时会自动排序
         bool mbFirstConnection;            // 是否是第一次生成树
         KeyFrame *mpParent;                // 当前关键帧的父关键帧 （共视程度最高的）
-        std::set<KeyFrame *> mspChildrens; // 存储当前关键帧的子关键帧
+        std::set<KeyFrame *> mspChildrens; // 存储当前关键帧的子关键帧（孤儿组）
         std::set<KeyFrame *> mspLoopEdges; // 和当前关键帧形成回环关系的关键帧
 
         // Bad flags
-        bool mbNotErase;   ///< 当前关键帧已经和其他的关键帧形成了回环关系，因此在各种优化的过程中不应该被删除
-        bool mbToBeErased; ///<
+        bool mbNotErase;   ///< 当前关键帧已经和其他的关键帧形成了回环关系，因此在各种优化的过程中不应该被删除（人大常委特权）
+        bool mbToBeErased; ///< 人大常委在位期间的黑账本
         bool mbBad;        ///<
 
         float mHalfBaseline; ///< 对于双目相机来说,双目相机基线长度的一半. Only for visualization
 
         Map *mpMap;
 
-        /// 在对位姿进行操作时相关的互斥锁
+        /// 在对 位姿进行操作 时相关的互斥锁
         std::mutex mMutexPose;
-        /// 在操作当前关键帧和其他关键帧的公式关系的时候使用到的互斥锁
+        /// 在操作 当前关键帧 和 其他关键帧的公式关系 的时候使用到的互斥锁
         std::mutex mMutexConnections;
-        /// 在操作和特征点有关的变量的时候的互斥锁
+        /// 在操作和 特征点有关的变量 的时候的互斥锁
         std::mutex mMutexFeatures;
     };
 

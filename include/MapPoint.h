@@ -122,7 +122,7 @@ namespace ORB_SLAM2
          * @brief 获取观测到当前地图点的关键帧
          * @return std::map<KeyFrame*, size_t>
          *       观测到当前地图点的关键帧序列；
-         *       size_t 这个对象对应为该地图点在该关键帧的特征点的访问id
+         *       size_t 这个对象对应为该地图点在该关键帧的特征点的访问id（特征点索引号，上限是N-1）
          */
         std::map<KeyFrame *, size_t> GetObservations();
 
