@@ -137,5 +137,9 @@
 		"cinttypes": "cpp",
 		"typeindex": "cpp",
 		"variant": "cpp"
-	}
+	},
+	"cSpell.words": [
+		"Cheirality",
+		"Keypoints"
+	]
 }
