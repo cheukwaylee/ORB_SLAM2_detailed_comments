@@ -275,7 +275,7 @@ namespace ORB_SLAM2
     /**
      * @brief 得到与该关键帧连接的前N个最强共视关键帧(已按权值排序)
      *
-     * @param[in] N                 设定要取出的关键帧数目
+     * @param[in] N          设定要取出的关键帧数目
      * @return vector<KeyFrame*>    满足权重条件的关键帧集合
      */
     vector<KeyFrame *> KeyFrame::GetBestCovisibilityKeyFrames(const int &N)

@@ -53,7 +53,7 @@ namespace ORB_SLAM2
     public:
         /**
          * @brief 构造函数
-         * @param[in] pMap          局部地图的句柄？ //?
+         * @param[in] pMap       局部地图的句柄？ //?
          * @param[in] bMonocular    当前系统是否是单目输入
          */
         LocalMapping(Map *pMap, const float bMonocular);
@@ -77,7 +77,8 @@ namespace ORB_SLAM2
         /**
          * @brief 插入关键帧,由外部线程调用
          * @details 将关键帧插入到地图中，以便将来进行局部地图优化 \n
-         * NOTICE 这里仅仅是将关键帧插入到列表中进行等待
+         * NOTICE  这里仅仅是将关键帧插入到列表中进行等待
+         *
          * @param pKF KeyFrame
          */
         void InsertKeyFrame(KeyFrame *pKF);
@@ -87,8 +88,11 @@ namespace ORB_SLAM2
         void RequestStop();
         /** @brief 请求当前线程复位,由外部线程调用,堵塞的 */
         void RequestReset();
+
         /**
-         * @brief 检查是否要把当前的局部建图线程停止,如果当前线程没有那么检查请求标志,如果请求标志被置位那么就设置为停止工作.由run函数调用
+         * @brief 检查是否要把当前的局部建图线程停止,
+         *     如果当前线程没有停止 那么检查请求标志,
+         *     如果请求标志被置位 那么就设置为停止工作.由run函数调用
          * @return true
          * @return false
          */
@@ -99,6 +103,8 @@ namespace ORB_SLAM2
         bool isStopped();
         /** @brief 是否有终止当前线程的请求 */
         bool stopRequested();
+
+        // mbAcceptKeyFrames的get/set方法
         /** @brief 查看当前是否允许接受关键帧 */
         bool AcceptKeyFrames();
         /**
@@ -106,14 +112,17 @@ namespace ORB_SLAM2
          * @param[in] flag 是或者否
          */
         void SetAcceptKeyFrames(bool flag);
+
         /** @brief 设置 mbnotStop标志的状态 */
         bool SetNotStop(bool flag);
+
         /** @brief 外部线程调用,终止BA */
         void InterruptBA();
         /** @brief 请求终止当前线程 */
         void RequestFinish();
         /** @brief 当前线程的run函数是否已经终止 */
         bool isFinished();
+
         //查看队列中等待插入的关键帧数目
         int KeyframesInQueue()
         {
@@ -123,19 +132,21 @@ namespace ORB_SLAM2
 
     protected:
         /**
-         * @brief 查看列表中是否有等待被插入的关键帧
+         * @brief 查看mlNewKeyFrames列表中是否有等待被插入的关键帧
          * @return 如果存在，返回true
          */
         bool CheckNewKeyFrames();
+
         /**
          * @brief 处理列表中的关键帧
          *
          * - 计算Bow，加速三角化新的MapPoints
          * - 关联当前关键帧至MapPoints，并更新MapPoints的平均观测方向和观测距离范围
-         * - 插入关键帧，更新Covisibility图和Essential图
+         * - 插入关键帧，更新 共视Covisibility图 和 本质Essential图
          * @see VI-A keyframe insertion
          */
         void ProcessNewKeyFrame();
+
         /** @brief 相机运动过程中和共视程度比较高的关键帧通过三角化恢复出一些MapPoints */
         void CreateNewMapPoints();
 
@@ -144,25 +155,30 @@ namespace ORB_SLAM2
          * @see VI-B recent map points culling
          */
         void MapPointCulling();
+
         /** @brief 检查并融合当前关键帧与相邻帧（两级相邻）重复的MapPoints */
         void SearchInNeighbors();
 
         /**
          * @brief 关键帧剔除
-         * @detials 在Covisibility Graph中的关键帧，其90%以上的MapPoints能被其他关键帧（至少3个）观测到，则认为该关键帧为冗余关键帧。
+         * @details 在Covisibility Graph中的关键帧，
+         *      其90%以上的MapPoints能被其他关键帧（至少3个）观测到，则认为该关键帧为冗余关键帧。
          * @see VI-E Local Keyframe Culling
          */
         void KeyFrameCulling();
 
         /**
-         * 根据两关键帧的姿态计算两个关键帧之间的基本矩阵
+         * @brief 根据两关键帧的姿态计算两个关键帧之间的基本矩阵
+         *
          * @param  pKF1 关键帧1
          * @param  pKF2 关键帧2
-         * @return      基本矩阵
+         * @return  基本矩阵
          */
         cv::Mat ComputeF12(KeyFrame *&pKF1, KeyFrame *&pKF2);
+
         /**
          * @brief 计算三维向量v的反对称矩阵
+         *
          * @param[in] v     三维向量
          * @return cv::Mat  反对称矩阵
          */
@@ -173,7 +189,7 @@ namespace ORB_SLAM2
 
         /** @brief 检查当前是否有复位线程的请求 */
         void ResetIfRequested();
-        /// 当前系统是否收到了请求复位的信号
+        /// 当前系统是否收到了请求复位信号的成员变量
         bool mbResetRequested;
         /// 和复位信号有关的互斥量
         std::mutex mMutexReset;
@@ -184,7 +200,7 @@ namespace ORB_SLAM2
         void SetFinish();
         /// 当前线程是否收到了请求终止的信号
         bool mbFinishRequested;
-        /// 当前线程的主函数是否已经终止
+        /// 当前线程的主函数已经终止(跳出了死循环)
         bool mbFinished;
         // 和"线程真正结束"有关的互斥锁
         std::mutex mMutexFinish;
@@ -192,30 +208,31 @@ namespace ORB_SLAM2
         // 指向局部地图的句柄
         Map *mpMap;
 
-        // 回环检测线程句柄
+        // 回环检测线程句柄 （下一级）
         LoopClosing *mpLoopCloser;
-        // 追踪线程句柄
+        // 追踪线程句柄 （上一级）
         Tracking *mpTracker;
 
         // Tracking线程向LocalMapping中插入关键帧是先插入到该队列中
+        // （与上一级tracking交互的变量）
         std::list<KeyFrame *> mlNewKeyFrames; ///< 等待处理的关键帧列表
         /// 当前正在处理的关键帧
         KeyFrame *mpCurrentKeyFrame;
+        /// 操作关键帧列表时使用的互斥量
+        std::mutex mMutexNewKFs;
 
         /// 存储当前关键帧生成的地图点,也是等待检查的地图点列表
         std::list<MapPoint *> mlpRecentAddedMapPoints;
 
-        /// 操作关键帧列表时使用的互斥量
-        std::mutex mMutexNewKFs;
-
         /// 终止BA的标志
         bool mbAbortBA;
 
-        /// 当前线程是否已经真正地终止了
+        /// 当前线程是否已经真正地终止了 "可以真的终止了"的标志
         bool mbStopped;
         /// 终止当前线程的请求
         bool mbStopRequested;
-        /// 标志这当前线程还不能够停止工作,优先级比那个"mbStopRequested"要高.只有这个和mbStopRequested都满足要求的时候,线程才会进行一系列的终止操作
+        /// 标志这当前线程还不能够停止工作,优先级比那个"mbStopRequested"要高.
+        // NOTICE 只有这个和mbStopRequested都满足要求的时候,线程才会进行一系列的终止操作
         bool mbNotStop;
         /// 和终止线程相关的互斥锁
         std::mutex mMutexStop;

@@ -167,7 +167,8 @@ namespace ORB_SLAM2
 
         // Matching to triangulate new MapPoints. Check Epipolar Constraint.
         /**
-         * @brief 利用基本矩阵F12，在两个关键帧之间未匹配的特征点中产生新的3d点
+         * @brief 利用基础矩阵F12极线约束，用BoW加速匹配两个关键帧的未匹配的特征点，产生新的匹配点对
+         * （产生新的3d点）是后话了，之后的应用了，和这个函数没有关系的
          * @param pKF1          关键帧1
          * @param pKF2          关键帧2
          * @param F12           基础矩阵

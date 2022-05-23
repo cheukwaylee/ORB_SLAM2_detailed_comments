@@ -330,6 +330,9 @@ namespace ORB_SLAM2
          * @brief 对 Local MapPoints 进行跟踪
          *
          * 在局部地图中查找在当前帧视野范围内的点，将视野范围内的点和当前帧的特征点进行投影匹配
+         *
+         * 对所有处于当前帧视锥内的地图点调用成员函数MapPoint::IncreaseVisible().
+         * (这些点未必真的被当前帧观测到了,只是地理位置上处于当前帧视锥范围内).
          */
         void SearchLocalPoints();
 
