@@ -114,7 +114,7 @@ namespace ORB_SLAM2
         void UpdateBestCovisibles();
 
         /**
-         * @brief 得到与该关键帧连接的关键帧(没有排序的)
+         * @brief 得到与该关键帧直接连接的关键帧(没有排序的)
          * @return 连接的关键帧
          */
         std::set<KeyFrame *> GetConnectedKeyFrames();
@@ -290,7 +290,8 @@ namespace ORB_SLAM2
         /** @brief 设置当前关键帧不要在优化的过程中被删除
          * （赋予人大常委特权：参与回环检测的关键帧具有不被删除的特权） */
         void SetNotErase();
-        /** @brief 准备删除当前的这个关键帧,表示不进行回环检测过程;由回环检测线程调用 */
+        /** @brief 准备删除当前的这个关键帧,表示不进行回环检测过程;由回环检测线程调用
+         * （撤销人大常委特权）*/
         void SetErase();
 
         // Set/check bad flag
@@ -370,7 +371,8 @@ namespace ORB_SLAM2
         // Variables used by loop closing
         // 经过全局BA优化后的相机的位姿
         cv::Mat mTcwGBA;
-        // 进行全局BA优化之前的当前关键帧的位姿. 之所以要记录这个是因为在全局优化之后还要根据该关键帧在优化之前的位姿来更新地图点,which地图点的参考关键帧就是该关键帧
+        // 进行全局BA优化之前的当前关键帧的位姿.
+        // 之所以要记录这个是因为在全局优化之后还要根据该关键帧在优化之前的位姿来更新地图点,which地图点的参考关键帧就是该关键帧
         cv::Mat mTcwBefGBA;
         // 记录是由于哪个"当前关键帧"触发的全局BA,用来防止重复写入的事情发生(浪费时间)
         long unsigned int mnBAGlobalForKF;

@@ -134,7 +134,7 @@ namespace ORB_SLAM2
         void clear();
 
         // 保存了最初始的关键帧
-        //? 只有初始化的最开始的一个吗？
+        //? 只有初始化的最开始的一个吗？ // 双目and单目初始化的时候会把初始化的关键帧写到这里
         vector<KeyFrame *> mvpKeyFrameOrigins;
 
         ///当更新地图时的互斥量.回环检测中和局部BA后更新全局地图的时候会用到这个

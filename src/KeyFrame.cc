@@ -443,7 +443,7 @@ namespace ORB_SLAM2
         return mvpMapPoints[idx];
     }
 
-    /*
+    /**
      * 更新关键帧之间的连接图
      *
      * 1. 首先获得该关键帧的所有MapPoint点，统计观测到这些3d点的每个关键帧与其它所有关键帧之间的共视程度
@@ -791,7 +791,7 @@ namespace ORB_SLAM2
                             {
                                 // 孤儿 和 它的共视 之间的共视程度
                                 int w = pKF->GetWeight(vpConnected[i]);
-                                
+
                                 // 寻找并更新权值最大的那个共视关系
                                 if (w > max)
                                 {

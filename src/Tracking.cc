@@ -789,7 +789,7 @@ namespace ORB_SLAM2
 
   } // end Tracking
 
-  /*
+  /**
    * @brief 双目和rgbd的地图初始化，比单目简单很多
    *
    * 由于具有深度信息，直接生成MapPoints
